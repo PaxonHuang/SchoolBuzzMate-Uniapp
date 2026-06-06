@@ -1,0 +1,15 @@
+@import './variables.scss';
+
+page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 28rpx;
+  color: #333;
+  background-color: $bg-color;
+}
+
+// 全局实用类
+.text-green { color: $primary-color; }
+.text-orange { color: $price-color; }
+.text-gray { color: $text-gray; }
+.bg-white { background: #fff; }
+.flex-center { display: flex; align-items: center; justify-content: center; }

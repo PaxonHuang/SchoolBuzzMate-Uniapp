@@ -1,0 +1,69 @@
+{
+  "bsonType": "object",
+  "required": ["user_id", "school_id", "real_name", "student_no", "student_card"],
+  "properties": {
+    "_id": { "description": "ID" },
+    "user_id": {
+      "bsonType": "string",
+      "description": "关联uni-id-users._id",
+      "foreignKey": "uni-id-users._id"
+    },
+    "school_id": {
+      "bsonType": "string",
+      "description": "学校ID",
+      "foreignKey": "schools._id"
+    },
+    "college": {
+      "bsonType": "string",
+      "description": "学院",
+      "title": "学院"
+    },
+    "major": {
+      "bsonType": "string",
+      "description": "专业",
+      "title": "专业"
+    },
+    "grade": {
+      "bsonType": "string",
+      "description": "年级",
+      "title": "年级"
+    },
+    "student_no": {
+      "bsonType": "string",
+      "description": "学号",
+      "title": "学号"
+    },
+    "real_name": {
+      "bsonType": "string",
+      "description": "真实姓名",
+      "title": "真实姓名"
+    },
+    "student_card": {
+      "bsonType": "string",
+      "description": "学生证照片URL"
+    },
+    "is_verified": {
+      "bsonType": "bool",
+      "description": "是否通过学生认证",
+      "defaultValue": false
+    },
+    "credit_score": {
+      "bsonType": "int",
+      "description": "信用分",
+      "defaultValue": 100
+    },
+    "balance": {
+      "bsonType": "double",
+      "description": "余额",
+      "defaultValue": 0
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "创建时间"
+    },
+    "update_date": {
+      "bsonType": "date",
+      "description": "更新时间"
+    }
+  }
+}

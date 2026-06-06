@@ -1,0 +1,7 @@
+{
+  "name": "user-co",
+  "version": "1.0.0",
+  "description": "SchoolBuzzMate 用户服务云函数",
+  "main": "index.obj.js",
+  "dependencies": {}
+}

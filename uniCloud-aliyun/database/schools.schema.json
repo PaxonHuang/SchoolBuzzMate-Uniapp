@@ -1,0 +1,35 @@
+{
+  "bsonType": "object",
+  "required": ["name", "province", "city"],
+  "properties": {
+    "_id": { "description": "ID" },
+    "name": {
+      "bsonType": "string",
+      "description": "学校名称",
+      "title": "学校名称"
+    },
+    "province": {
+      "bsonType": "string",
+      "description": "省份",
+      "title": "省份"
+    },
+    "city": {
+      "bsonType": "string",
+      "description": "城市",
+      "title": "城市"
+    },
+    "logo": {
+      "bsonType": "string",
+      "description": "校徽URL"
+    },
+    "status": {
+      "bsonType": "int",
+      "description": "状态 0禁用 1启用",
+      "defaultValue": 1
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "创建时间"
+    }
+  }
+}

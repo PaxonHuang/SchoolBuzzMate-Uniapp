@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      var coverSupport = 'CSS' in window && typeof CSS.supports === 'function' && (CSS.supports('cover-image') || CSS.supports('-webkit-cover-image'))
+      document.write(
+        '<meta name="viewport" content="width=device-width,initial-scale=1,minimal-ui' +
+          (coverSupport ? ',viewport-fit=cover' : '') +
+          '" />',
+      )
+    </script>
+    <title></title>
+    <!--preload-links-->
+    <!--app-context-->
+  </head>
+  <body>
+    <div id="app"><!--app-html--></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

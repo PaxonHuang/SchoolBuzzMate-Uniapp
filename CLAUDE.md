@@ -1,79 +1,91 @@
-# CLAUDE.md
+# SchoolBuzzMate (校趣闪搭)
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+校园社交交易平台 - 二手交易、社交互动、营销活动
 
-## About This Directory
+## 技术栈
 
-This directory (`SchoolBuzzUniAPP`) is the **planning and documentation hub** for the SchoolBuzzMate project. It does not contain source code. The actual implementations live in sibling directories:
+- **前端**: UniApp + Vue3 + TypeScript + Vite5 + Pinia + UnoCSS + wot-design-uni
+- **后端 MVP**: UniCloud (阿里云) + uni-id + uni-pay
+- **后端成熟期**: Spring Boot → Spring Cloud (通过 API 抽象层无缝迁移)
+- **目标平台**: 微信小程序 (主) + H5 + APP
 
-- **`../SchoolBuzzUniAppX/SchoolBuzzUniappXuts/SchoolBuzzMate/`** — Primary implementation: UniApp X (Vue 3 + UTS), Pinia, UniCloud, brutalist design system. Has its own `CLAUDE.md`.
-- **`../SchoolBuzzTaro/campus-mini/`** — Alternative implementation: Taro 3.6 + React 18 + TypeScript, NutUI, Zustand, Spring Boot backend. Has its own `CLAUDE.md`.
+## 快速开始
 
-## Project: SchoolBuzzMate (校趣闪搭)
-
-A campus social trading platform for university students. Core features: second-hand trading, social interaction (comments, likes, follows, DMs), and marketing (coupons, points, group buying).
-
-### Key Decision (2026-06-03)
-
-**Base repository:** yudao-mall-uniapp (https://github.com/yudaocode/yudao-mall-uniapp) — frontend reuse
-**MVP backend:** UniCloud (uni-id + uni-pay + cloud functions)
-**Mature backend:** Spring Boot → Spring Cloud (migration via unified API layer)
-**Strategy:** Reuse yudao-mall-uniapp pages/components, rewrite backend to UniCloud cloud functions, keep API signatures identical for seamless later migration.
-
-### Reference Repositories (for engineering practices, not direct base)
-- **JeecgUniapp** — TypeScript + Pinia + UnoCSS + ESLint/Prettier/Husky patterns
-- **yudao-ui-admin-uniapp** — TypeScript + Pinia + UnoCSS + wot-design-uni patterns
-
-### Tech Stack (MVP)
-
-- UniApp + Vue 3 + TypeScript + Vite 5 + Pinia + wot-design-uni + UnoCSS
-- Backend: UniCloud (Alibaba Cloud) with uni-id (auth) and uni-pay (payments)
-- Target platforms: WeChat Mini Program (primary), H5, APP (later)
-
-### Phased Approach
-
-| Phase | Timeline | Backend | Scope |
-|-------|----------|---------|-------|
-| MVP | 6-8 weeks | UniCloud (serverless) | Single school, core trading |
-| Feature completion | 3-6 months | UniCloud | 3-5 schools, marketing/social |
-| Architecture upgrade | 6-12 months | Spring Boot/Cloud migration | 50+ schools |
-| Scale | 12+ months | Microservices | 100+ schools |
-
-### Database Collections (12)
-
-`products`, `orders`, `comments`, `favorites`, `messages`, `coupons`, `user_coupons`, `points_log`, `groups`, `group_users`, `follows`, `reports`
-
-### Cloud Function Groups (7)
-
-`product-co`, `order-co`, `payment-co`, `social-co`, `marketing-co`, `school-co`, `admin-co`
-
-## Development Tools
-
-### CLI Tools
-- **HBuilderX CLI:** `E:\HbuilderX\HBuilderX\cli.exe` — project management, cloud deploy
-- **WeChat DevTools CLI:** `E:\Tencent微信web开发者工具\微信web开发者工具\cli.bat` — preview, upload, auto-test
-- **WeChat DevTools HTTP API:** `http://localhost:<port>/v2/` — programmatic control
-
-### Key Commands
 ```powershell
-# Dev
-pnpm run dev:h5              # H5 dev mode
-pnpm run dev:mp-weixin        # WeChat Mini Program dev
-pnpm run build:mp-weixin      # WeChat Mini Program build
+# 安装依赖
+pnpm install
 
-# WeChat CLI
-$WX="E:\Tencent微信web开发者工具\微信web开发者工具\cli.bat"
-& $WX open --project ".\dist\dev\mp-weixin"
-& $WX preview --project ".\dist\dev\mp-weixin"
-& $WX upload --project ".\dist\build\mp-weixin" -v "1.0.0" -d "desc"
+# H5 开发
+pnpm run dev:h5
+
+# 微信小程序开发
+pnpm run dev:mp-weixin
+
+# 微信小程序构建
+pnpm run build:mp-weixin
 ```
 
-## Key Documents
+## 项目结构
 
-- **`SOP-SPEC-PLAN-v2.md`** (NEW - 2026-06-03) — Complete v2 SOP/Spec/Plan based on yudao-mall-uniapp reuse strategy
-- **`SOP-SPEC-PLAN.md`** (v1.0, 2025-01) — Original plan, kept for reference
-- **`CLAUDE-CODE-PROMPTS.md`** (1608 lines) — Ready-to-execute Claude Code prompts
+```
+src/
+├── pages/              # 主包页面
+│   ├── index/          # 首页（商品列表）
+│   ├── publish/        # 发布商品
+│   ├── message/        # 消息中心
+│   └── user/           # 个人中心 + 认证 + 设置
+├── pages-core/         # 核心分包（登录、选学校）
+│   └── login/          # 登录页 + 学校选择
+├── api/                # API 抽象层
+│   ├── auth.ts         # 认证 API
+│   ├── user.ts         # 用户 API
+│   ├── school.ts       # 学校 API
+│   ├── upload.ts       # 上传 API
+│   └── unicloud.ts     # UniCloud 调用封装
+├── store/              # Pinia 状态管理
+│   ├── user.ts         # 用户 store
+│   └── school.ts       # 学校 store
+├── types/              # TypeScript 类型
+│   ├── user.ts         # 用户类型
+│   └── api.ts          # API 通用类型
+├── style/              # 全局样式
+└── tabbar/             # Tabbar 配置
 
-## When Working on Implementation
+uniCloud-aliyun/
+├── cloudfunctions/
+│   ├── user-co/        # 用户服务云函数
+│   ├── school-co/      # 学校服务云函数
+│   ├── product-co/     # 商品服务（待开发）
+│   └── common/         # 公共模块
+│       ├── auth.js     # 权限验证
+│       └── uni-config-center/uni-id/  # uni-id 配置
+└── database/
+    ├── school_users.schema.json
+    └── schools.schema.json
+```
 
-Go to the appropriate sibling project and read its `CLAUDE.md` for build commands, architecture details, and constraints. The UniApp X project is the primary implementation aligned with the SOP-SPEC-PLAN in this directory.
+## 微信小程序配置
+
+- **AppID**: `wxbc1260ebbefc26f6`
+- **UniApp AppID**: `__UNI__8802791`
+
+## 云服务
+
+- **平台**: UniCloud 阿里云
+- **SpaceID**: `mp-c3e590c7-e8f1-4877-95c5-346ba36e296c`
+
+## 分阶段实施
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| M0: 环境就绪 | ✅ | 项目骨架+文档 |
+| M1: 用户系统 | ✅ | 登录+认证+学校 |
+| M2: 商品系统 | 📋 | 商品发布/列表/详情 |
+| M3: 交易核心 | 📋 | 订单+支付 |
+| M4: MVP上线 | 📋 | 审核+发布 |
+
+## 相关文档
+
+位于同级目录 `SchoolBuzzDocs/`：
+- `SOP-SPEC-PLAN.md` — 完整技术规划
+- `PROGRESS.md` — 开发进度

@@ -1,0 +1,6 @@
+{
+  "name": "uni-config-center",
+  "version": "1.0.0",
+  "description": "UniCloud 配置中心",
+  "main": "index.js"
+}

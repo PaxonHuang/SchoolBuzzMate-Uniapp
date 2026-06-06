@@ -1,0 +1,51 @@
+{
+  "passwordSecret": "schoolbuzz-uni-id-secret-v1",
+  "tokenSecret": "schoolbuzz-token-secret-v1",
+  "tokenExpiresIn": 7200,
+  "tokenExpiresThreshold": 600,
+  "passwordErrorLimit": 6,
+  "bindTokenToDevice": false,
+  "passwordErrorRetryTime": 3600,
+  "autoSetInviteCode": false,
+  "forceInviteCode": false,
+  "removePermissionAndRoleFromToken": false,
+  "preferedAppPlatform": "mp-weixin",
+  "app": {
+    "tokenExpiresIn": 2592000,
+    "tokenExpiresThreshold": 864000,
+    "oauth": {
+      "weixin": {
+        "appid": "wxbc1260ebbefc26f6",
+        "appsecret": "0c44c765927e4fda455ecb8166a554ec"
+      }
+    }
+  },
+  "mp-weixin": {
+    "oauth": {
+      "weixin": {
+        "appid": "wxbc1260ebbefc26f6",
+        "appsecret": ""
+      }
+    }
+  },
+  "web": {
+    "oauth": {
+      "weixin-h5": {
+        "appid": "wxbc1260ebbefc26f6",
+        "appsecret": ""
+      }
+    }
+  },
+  "service": {
+    "sms": {
+      "name": "aliyun",
+      "smsKey": "",
+      "smsSecret": ""
+    },
+    "univerify": {
+      "appid": "",
+      "apiKey": "",
+      "apiSecret": ""
+    }
+  }
+}

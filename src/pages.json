@@ -46,7 +46,13 @@
     {
       "path": "pages/user/verify",
       "type": "page"
+    },
+    // #ifdef MP-WEIXIN
+    {
+      "path": "pages/product/detail",
+      "type": "page"
     }
+    // #endif
   ],
   "subPackages": [
     {

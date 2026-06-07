@@ -1,17 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/zh-cn'
 import { useSchoolStore } from '@/store/school'
+import { getProductList } from '@/api/product'
+import type { ProductListItem, ProductCategory } from '@/types/product'
+import { CATEGORY_OPTIONS } from '@/types/product'
+
+dayjs.extend(relativeTime)
+dayjs.locale('zh-cn')
 
 const schoolStore = useSchoolStore()
-const productList = ref<any[]>([])
+const productList = ref<ProductListItem[]>([])
 const loading = ref(false)
 const page = ref(1)
 const hasMore = ref(true)
 const keyword = ref('')
+const activeCategory = ref<ProductCategory | ''>('')
 
-onMounted(() => {
-  loadProducts(true)
-})
+function getCategoryIcon(category: string) {
+  return CATEGORY_OPTIONS.find(c => c.value === category)?.icon || '🎨'
+}
+
+function formatTime(time: string) {
+  if (!time) return ''
+  return dayjs(time).fromNow()
+}
 
 async function loadProducts(isRefresh = false) {
   if (loading.value) return
@@ -21,26 +36,37 @@ async function loadProducts(isRefresh = false) {
   if (isRefresh) page.value = 1
 
   try {
-    // TODO: 接入商品云函数
-    const mockData = [
-      { _id: '1', title: '高等数学（第七版）', price: 25, condition: 'used', images: [], seller: { nickname: '学长小王' } },
-      { _id: '2', title: '捷安特山地自行车', price: 580, condition: 'used', images: [], seller: { nickname: '骑行爱好者' } },
-      { _id: '3', title: 'LED护眼台灯', price: 35, condition: 'brand_new', images: [], seller: { nickname: '考研上岸学姐' } },
-    ]
-
-    if (isRefresh) {
-      productList.value = mockData
-    } else {
-      productList.value.push(...mockData)
+    const params: any = {
+      page: page.value,
+      size: 10,
+    }
+    if (schoolStore.currentSchoolId) {
+      params.school_id = schoolStore.currentSchoolId
+    }
+    if (activeCategory.value) {
+      params.category = activeCategory.value
     }
 
-    hasMore.value = mockData.length === 10
+    const res = await getProductList(params)
+
+    if (isRefresh) {
+      productList.value = res.list
+    } else {
+      productList.value.push(...res.list)
+    }
+
+    hasMore.value = productList.value.length < res.total
     page.value++
-  } catch (error) {
-    uni.showToast({ title: '加载失败', icon: 'none' })
+  } catch (error: any) {
+    uni.showToast({ title: error.message || '加载失败', icon: 'none' })
   } finally {
     loading.value = false
   }
+}
+
+function selectCategory(category: ProductCategory | '') {
+  activeCategory.value = category
+  loadProducts(true)
 }
 
 function goToPublish() {
@@ -65,6 +91,10 @@ onPullDownRefresh(async () => {
 })
 
 onReachBottom(() => loadProducts())
+
+onMounted(() => {
+  loadProducts(true)
+})
 </script>
 
 <template>
@@ -80,29 +110,27 @@ onReachBottom(() => loadProducts())
       </view>
     </view>
 
-    <!-- Categories -->
-    <view class="categories">
-      <view class="category-item">
-        <text class="i-carbon-book category-icon" />
-        <text>教材资料</text>
+    <!-- 分类筛选 -->
+    <scroll-view class="categories" scroll-x>
+      <view
+        class="category-item"
+        :class="{ active: activeCategory === '' }"
+        @click="selectCategory('')"
+      >
+        <text class="category-icon">🔥</text>
+        <text>全部</text>
       </view>
-      <view class="category-item">
-        <text class="i-carbon-devices category-icon" />
-        <text>数码电子</text>
+      <view
+        v-for="cat in CATEGORY_OPTIONS"
+        :key="cat.value"
+        class="category-item"
+        :class="{ active: activeCategory === cat.value }"
+        @click="selectCategory(cat.value)"
+      >
+        <text class="category-icon">{{ cat.icon }}</text>
+        <text>{{ cat.label }}</text>
       </view>
-      <view class="category-item">
-        <text class="i-carbon-clothing category-icon" />
-        <text>服饰鞋包</text>
-      </view>
-      <view class="category-item">
-        <text class="i-carbon-furniture category-icon" />
-        <text>生活用品</text>
-      </view>
-      <view class="category-item">
-        <text class="i-carbon-application category-icon" />
-        <text>其他</text>
-      </view>
-    </view>
+    </scroll-view>
 
     <!-- Product Grid -->
     <view class="product-list">
@@ -122,7 +150,10 @@ onReachBottom(() => loadProducts())
             <text class="price">¥{{ item.price }}</text>
             <text class="condition">{{ item.condition === 'brand_new' ? '全新' : item.condition === 'like_new' ? '几乎全新' : '已使用' }}</text>
           </view>
-          <text class="seller">{{ item.seller?.nickname }}</text>
+          <view class="meta-row">
+            <text class="seller">{{ item.seller?.nickname }}</text>
+            <text class="time">{{ formatTime(item.publish_time) }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -184,32 +215,37 @@ onReachBottom(() => loadProducts())
 }
 
 .categories {
-  display: flex;
-  justify-content: space-around;
-  padding: 30rpx 20rpx;
+  white-space: nowrap;
+  padding: 24rpx 20rpx;
   background: white;
-  margin-bottom: 20rpx;
+  margin-bottom: 16rpx;
 
   .category-item {
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     align-items: center;
     gap: 8rpx;
     font-size: 22rpx;
-    color: #333;
+    color: #666;
+    padding: 8rpx 24rpx;
+    border-radius: 12rpx;
+
+    &.active {
+      background: #e8f8ee;
+      color: #07c160;
+    }
 
     .category-icon {
-      font-size: 40rpx;
-      color: #07c160;
+      font-size: 36rpx;
     }
   }
 }
 
 .product-list {
-  padding: 20rpx;
+  padding: 0 20rpx;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .product-card {
@@ -268,10 +304,21 @@ onReachBottom(() => loadProducts())
       }
     }
 
-    .seller {
-      font-size: 22rpx;
-      color: #999;
+    .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-top: 6rpx;
+
+      .seller {
+        font-size: 22rpx;
+        color: #999;
+      }
+
+      .time {
+        font-size: 20rpx;
+        color: #ccc;
+      }
     }
   }
 }

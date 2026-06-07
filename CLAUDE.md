@@ -25,6 +25,23 @@ pnpm run dev:mp-weixin
 pnpm run build:mp-weixin
 ```
 
+### ⚠️ 开发方式说明
+
+**必须使用 CLI 开发，不要使用 HBuilderX IDE。**
+
+HBuilderX 在 Windows + Node.js v22 环境下存在已知 bug：
+```
+Error [ERR_UNSUPPORTED_ESM_URL_SCHEME]: Only URLs with a scheme in: file, data, and node are supported...
+Received protocol 'e:'
+```
+
+这是 Node.js ESM loader 与 HBuilderX 环境变量设置不兼容导致的，CLI 方式完全正常。
+
+**推荐工作流程：**
+1. 终端运行 `pnpm run dev:mp-weixin` 启动编译监听
+2. 打开微信开发者工具，导入 `dist/dev/mp-weixin` 目录
+3. 修改代码后自动差量编译，微信开发者工具自动刷新
+
 ## 项目结构
 
 ```

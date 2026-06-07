@@ -1,0 +1,110 @@
+<h2>商品详情页布局设计</h2>
+<p class="subtitle">选择你觉得最适合校园二手交易场景的布局风格</p>
+
+<div class="cards">
+  <div class="card" data-choice="classic" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">经典电商风格</div>
+        <div class="mockup-body" style="padding: 12px;">
+          <div style="background: #f5f5f5; height: 180px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 12px;">
+            <span style="color: #999;">商品大图轮播</span>
+          </div>
+          <div style="font-size: 18px; font-weight: bold; color: #ff6b00;">¥128</div>
+          <div style="font-size: 14px; color: #333; margin: 8px 0;">高数第七版 教材</div>
+          <div style="font-size: 12px; color: #999;">几乎全新 | 可自提/快递</div>
+          <div style="border-top: 1px solid #eee; margin-top: 12px; padding-top: 12px;">
+            <div style="font-size: 12px; color: #666;">卖家信息</div>
+            <div style="display: flex; align-items: center; margin-top: 8px;">
+              <div style="width: 32px; height: 32px; background: #07c160; border-radius: 50%; margin-right: 8px;"></div>
+              <div style="font-size: 14px;">学长小王 · 信用 98分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>经典电商风格</h3>
+      <p>大图轮播 + 价格标题 + 卖家卡片，类似闲鱼布局</p>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>优点</h4><ul><li>用户熟悉度高</li><li>信息层次清晰</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>较占空间</li><li>视觉较传统</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="card" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">卡片化简洁风格</div>
+        <div class="mockup-body" style="padding: 12px;">
+          <div style="display: flex; gap: 12px;">
+            <div style="width: 120px; height: 120px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+              <span style="color: #999; font-size: 12px;">商品图</span>
+            </div>
+            <div style="flex: 1;">
+              <div style="font-size: 18px; font-weight: bold; color: #ff6b00;">¥128</div>
+              <div style="font-size: 14px; color: #333; margin: 4px 0;">高数第七版</div>
+              <div style="font-size: 11px; color: #07c160; background: #e8f8e8; padding: 2px 6px; border-radius: 4px;">几乎全新</div>
+              <div style="margin-top: 12px; font-size: 12px; color: #666;">
+                <div>📍 西操场自提</div>
+                <div style="margin-top: 4px;">👤 学长小王</div>
+              </div>
+            </div>
+          </div>
+          <div style="border-top: 1px solid #eee; margin-top: 12px; padding-top: 12px; font-size: 13px; color: #666;">
+            商品描述区域...可展开查看更多
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>卡片化简洁风格</h3>
+      <p>左图右信息紧凑布局，适合快速浏览决策</p>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>优点</h4><ul><li>紧凑高效</li><li>一屏看关键信息</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>大图展示受限</li><li>描述空间有限</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-choice="social" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">社交动态风格</div>
+        <div class="mockup-body" style="padding: 12px;">
+          <div style="display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="width: 40px; height: 40px; background: #07c160; border-radius: 50%; margin-right: 12px;"></div>
+            <div>
+              <div style="font-size: 14px; font-weight: 500;">学长小王</div>
+              <div style="font-size: 11px; color: #999;">3小时前 · 计算机学院</div>
+            </div>
+          </div>
+          <div style="background: #f5f5f5; height: 140px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+            <span style="color: #999;">商品图片</span>
+          </div>
+          <div style="font-size: 15px; color: #333;">
+            高数第七版，几乎全新，只做了前三章笔记<br/>
+            <span style="font-size: 18px; font-weight: bold; color: #ff6b00;">¥128</span>
+            <span style="font-size: 12px; color: #999; margin-left: 8px;">原价 ¥58</span>
+          </div>
+          <div style="display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: #666;">
+            <span>❤️ 23</span>
+            <span>💬 5</span>
+            <span>📍 西操场</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>社交动态风格</h3>
+      <p>类似朋友圈/小红书，卖家动态 + 商品信息融合</p>
+      <div class="pros-cons" style="margin-top: 12px;">
+        <div class="pros"><h4>优点</h4><ul><li>社交感强</li><li>信任感更好</li></ul></div>
+        <div class="cons"><h4>缺点</h4><ul><li>非标准电商体验</li><li>信息密度低</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 24px; font-size: 13px; color: #666;">点击选择你偏好的布局风格，也可以在终端告诉我你的想法</p>

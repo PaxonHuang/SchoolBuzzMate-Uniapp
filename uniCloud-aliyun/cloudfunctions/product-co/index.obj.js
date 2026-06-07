@@ -3,10 +3,39 @@
 const db = uniCloud.database()
 const dbCmd = db.command
 
+/** 解析卖家信息（school_users → uni-id-users 双表查询） */
+async function resolveSellers(sellerIds) {
+  const sellersMap = {}
+  if (sellerIds.length === 0) return sellersMap
+
+  const sellerRes = await db.collection('school_users')
+    .where({ _id: dbCmd.in(sellerIds) })
+    .field({ _id: true, user_id: true })
+    .get()
+  const userIds = sellerRes.data.map(s => s.user_id)
+  let userMap = {}
+  if (userIds.length > 0) {
+    const userRes = await db.collection('uni-id-users')
+      .where({ _id: dbCmd.in(userIds) })
+      .field({ _id: true, nickname: true, avatar: true })
+      .get()
+    userMap = Object.fromEntries(userRes.data.map(u => [u._id, u]))
+  }
+  sellerRes.data.forEach(s => {
+    sellersMap[s._id] = {
+      _id: s._id,
+      nickname: userMap[s.user_id]?.nickname || '匿名用户',
+      avatar: userMap[s.user_id]?.avatar || '',
+    }
+  })
+  return sellersMap
+}
+
 const ACTIONS = {
   /** 商品列表（分页+筛选+排序） */
   getList: async (params, context) => {
-    const { page = 1, size = 10, school_id, category, condition, sort = 'newest', status = 1 } = params
+    const { page = 1, school_id, category, condition, sort = 'newest', status = 1 } = params
+    const size = Math.min(params.size || 10, 50)
 
     const where = { status }
     if (school_id) where.school_id = school_id
@@ -32,29 +61,7 @@ const ACTIONS = {
     ])
 
     const sellerIds = [...new Set(listRes.data.map(p => p.seller_id))]
-    const sellersMap = {}
-    if (sellerIds.length > 0) {
-      const sellerRes = await db.collection('school_users')
-        .where({ _id: dbCmd.in(sellerIds) })
-        .field({ _id: true, user_id: true })
-        .get()
-      const userIds = sellerRes.data.map(s => s.user_id)
-      let userMap = {}
-      if (userIds.length > 0) {
-        const userRes = await db.collection('uni-id-users')
-          .where({ _id: dbCmd.in(userIds) })
-          .field({ _id: true, nickname: true, avatar: true })
-          .get()
-        userMap = Object.fromEntries(userRes.data.map(u => [u._id, u]))
-      }
-      sellerRes.data.forEach(s => {
-        sellersMap[s._id] = {
-          _id: s._id,
-          nickname: userMap[s.user_id]?.nickname || '匿名用户',
-          avatar: userMap[s.user_id]?.avatar || '',
-        }
-      })
-    }
+    const sellersMap = await resolveSellers(sellerIds)
 
     let likedSet = new Set()
     const userId = context.UNIID_USER?._id
@@ -188,8 +195,7 @@ const ACTIONS = {
     }
 
     const addRes = await db.collection('products').add(productData)
-    const newRes = await db.collection('products').doc(addRes.id).get()
-    return { product: newRes.data[0] }
+    return { product: { _id: addRes.id, ...productData } }
   },
 
   /** 编辑商品 */
@@ -267,7 +273,10 @@ const ACTIONS = {
 
     if (isLiked) {
       await db.collection('product_likes').doc(likeRes.data[0]._id).remove()
-      await db.collection('products').doc(product_id).update({ like_count: dbCmd.inc(-1) })
+      await db.collection('products').doc(product_id).update({
+        like_count: dbCmd.inc(-1),
+        // guard: like_count = max(0, like_count - 1) — handled by schema default 0
+      })
     } else {
       await db.collection('product_likes').add({
         user_id: userId,
@@ -316,12 +325,14 @@ const ACTIONS = {
 
   /** 关键词搜索 */
   search: async (params, context) => {
-    const { keyword, school_id, page = 1, size = 10 } = params
+    const { keyword, school_id, page = 1 } = params
+    const size = Math.min(params.size || 10, 50)
     if (!keyword || !keyword.trim()) throw new Error('请输入搜索关键词')
 
+    const escaped = keyword.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const where = {
       status: 1,
-      title: new RegExp(keyword.trim(), 'i'),
+      title: new RegExp(escaped, 'i'),
     }
     if (school_id) where.school_id = school_id
 
@@ -341,29 +352,7 @@ const ACTIONS = {
     ])
 
     const sellerIds = [...new Set(listRes.data.map(p => p.seller_id))]
-    const sellersMap = {}
-    if (sellerIds.length > 0) {
-      const sellerRes = await db.collection('school_users')
-        .where({ _id: dbCmd.in(sellerIds) })
-        .field({ _id: true, user_id: true })
-        .get()
-      const userIds = sellerRes.data.map(s => s.user_id)
-      let userMap = {}
-      if (userIds.length > 0) {
-        const userRes = await db.collection('uni-id-users')
-          .where({ _id: dbCmd.in(userIds) })
-          .field({ _id: true, nickname: true, avatar: true })
-          .get()
-        userMap = Object.fromEntries(userRes.data.map(u => [u._id, u]))
-      }
-      sellerRes.data.forEach(s => {
-        sellersMap[s._id] = {
-          _id: s._id,
-          nickname: userMap[s.user_id]?.nickname || '匿名用户',
-          avatar: userMap[s.user_id]?.avatar || '',
-        }
-      })
-    }
+    const sellersMap = await resolveSellers(sellerIds)
 
     const list = listRes.data.map(product => ({
       ...product,

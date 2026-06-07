@@ -66,7 +66,7 @@
       "bsonType": "array",
       "description": "交易方式：self_pickup/express",
       "title": "交易方式",
-      "items": { "bsonType": "string" }
+      "items": { "bsonType": "string", "enum": ["self_pickup", "express"] }
     },
     "location": {
       "bsonType": "string",

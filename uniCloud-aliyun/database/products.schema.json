@@ -1,0 +1,110 @@
+{
+  "bsonType": "object",
+  "required": ["seller_id", "school_id", "category", "title", "description", "images", "price", "condition", "trade_method", "status"],
+  "permission": {
+    "create": false,
+    "read": true,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "ID" },
+    "seller_id": {
+      "bsonType": "string",
+      "description": "卖家ID（关联 school_users._id）",
+      "title": "卖家ID"
+    },
+    "school_id": {
+      "bsonType": "string",
+      "description": "所属学校ID（关联 schools._id）",
+      "title": "学校ID"
+    },
+    "category": {
+      "bsonType": "string",
+      "description": "分类：textbook/digital/clothing/daily/sports/other",
+      "title": "分类",
+      "enum": ["textbook", "digital", "clothing", "daily", "sports", "other"]
+    },
+    "title": {
+      "bsonType": "string",
+      "description": "商品标题",
+      "title": "标题",
+      "maxLength": 50
+    },
+    "description": {
+      "bsonType": "string",
+      "description": "详细描述",
+      "title": "描述",
+      "maxLength": 500
+    },
+    "images": {
+      "bsonType": "array",
+      "description": "图片URL数组（1-6张）",
+      "title": "图片",
+      "items": { "bsonType": "string" },
+      "maxItems": 6,
+      "minItems": 1
+    },
+    "original_price": {
+      "bsonType": "double",
+      "description": "原价",
+      "title": "原价"
+    },
+    "price": {
+      "bsonType": "double",
+      "description": "售价",
+      "title": "售价",
+      "minimum": 0.01
+    },
+    "condition": {
+      "bsonType": "string",
+      "description": "成色：brand_new/like_new/used/old",
+      "title": "成色",
+      "enum": ["brand_new", "like_new", "used", "old"]
+    },
+    "trade_method": {
+      "bsonType": "array",
+      "description": "交易方式：self_pickup/express",
+      "title": "交易方式",
+      "items": { "bsonType": "string" }
+    },
+    "location": {
+      "bsonType": "string",
+      "description": "自提地点",
+      "title": "自提地点"
+    },
+    "status": {
+      "bsonType": "int",
+      "description": "状态：0下架 1上架 2已售",
+      "title": "状态",
+      "defaultValue": 1
+    },
+    "view_count": {
+      "bsonType": "int",
+      "description": "浏览数",
+      "defaultValue": 0
+    },
+    "like_count": {
+      "bsonType": "int",
+      "description": "点赞数",
+      "defaultValue": 0
+    },
+    "comment_count": {
+      "bsonType": "int",
+      "description": "评论数",
+      "defaultValue": 0
+    },
+    "publish_time": {
+      "bsonType": "date",
+      "description": "发布时间"
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "创建时间"
+    },
+    "update_date": {
+      "bsonType": "date",
+      "description": "更新时间"
+    }
+  }
+}

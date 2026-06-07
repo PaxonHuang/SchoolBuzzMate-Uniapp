@@ -1,0 +1,7 @@
+{
+  "name": "product-co",
+  "version": "1.0.0",
+  "description": "SchoolBuzzMate 商品服务云函数",
+  "main": "index.obj.js",
+  "dependencies": {}
+}

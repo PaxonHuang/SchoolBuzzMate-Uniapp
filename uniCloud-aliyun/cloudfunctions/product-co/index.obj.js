@@ -123,7 +123,12 @@ const ACTIONS = {
     let is_owner = false
     const userId = context.UNIID_USER?._id
     if (userId) {
-      is_owner = product.seller_id === userId || seller._id === userId
+      // Check if current user is the seller by comparing school_users._id
+      const ownerCheck = await db.collection('school_users')
+        .where({ user_id: userId })
+        .field({ _id: true })
+        .get()
+      is_owner = ownerCheck.data?.[0]?._id === product.seller_id
       const likeRes = await db.collection('product_likes')
         .where({ user_id: userId, product_id })
         .count()

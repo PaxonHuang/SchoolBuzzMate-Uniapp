@@ -25,6 +25,8 @@
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "deploy:cloud": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1",
+    "deploy:cloud:order": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1 -Functions order-co,favorites-co",
     "prepare": "husky"
   },
   "dependencies": {

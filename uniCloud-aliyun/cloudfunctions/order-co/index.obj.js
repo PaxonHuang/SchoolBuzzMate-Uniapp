@@ -68,6 +68,17 @@ async function resolveUsers(buyerId, sellerId) {
   return out
 }
 
+/**
+ * 调整信用分 (clamp 在 [0, 150] 区间)
+ */
+async function adjustCredit(schoolUserId, delta, context) {
+  if (!schoolUserId || !delta) return
+  await db.collection('school_users').doc(schoolUserId).update({
+    credit_score: dbCmd.inc(delta),
+    update_date: new Date(),
+  }).catch(function () {})
+}
+
 const ACTIONS = {
   getList: async (params, context) => {
     const { schoolUser } = await getSchoolUser(context)
@@ -192,6 +203,8 @@ const ACTIONS = {
       cancel_reason: reason || '',
       update_date: now,
     })
+    // 发起取消方 -2 信用分
+    await adjustCredit(schoolUser._id, -2)
     return { success: true }
   },
 
@@ -206,17 +219,69 @@ const ACTIONS = {
     if (order.buyer_id !== schoolUser._id) throw new Error('只有买家可以支付')
     if (order.status !== 0) throw new Error('当前订单状态不可支付')
 
+    // 创建 uni-pay 微信支付订单
+    // uniPay.createOrder 内部会: 1) 创建 out_trade_no 2) 调微信统一下单 3) 返回 prepay 参数给前端
+    const uniPay = require('uni-pay')
+    const payRes = await uniPay.createOrder({
+      provider: 'wxpay',
+      totalFee: Math.round(order.amount * 100), // 分
+      outTradeNo: order.order_no,
+      subject: order.product_snapshot.title,
+      body: '校趣闪搭-' + order.product_snapshot.title,
+      // 微信小程序支付必传 openid (uni-id 会自动注入到 context.UNIID_USER.wx_openid)
+      openid: context.UNIID_USER.wx_openid || (context.UNIID_USER.tokenInfo && context.UNIID_USER.tokenInfo.openid),
+      notifyUrl: '/order-co/payNotify',
+      // uni-pay 会把 trade_no 等存到 uni-pay-orders 表, 这里带上自定义数据用于回调关联
+      custom: { order_id: order._id, buyer_id: schoolUser._id },
+    })
+
+    return {
+      // 前端用 uniPay.requestPayment(provider, orderInfo) 唤起微信支付
+      provider: 'wxpay',
+      orderInfo: payRes.orderInfo,
+      // 透传订单号便于前端确认
+      outTradeNo: order.order_no,
+    }
+  },
+
+  /**
+   * 微信支付回调 (uni-pay 自动调用, 通过 notifyUrl 配的 action 路由)
+   * 收到回调后: 校验 -> 订单状态 0 -> 1 -> 记录支付信息
+   */
+  payNotify: async (params, context) => {
+    const uniPay = require('uni-pay')
+    // verifyPaymentParams 校验微信回调签名 + 解析 payload
+    const verified = await uniPay.verifyPaymentNotify(params)
+    if (!verified) return { errcode: 1, errmsg: '签名校验失败' }
+
+    const { outTradeNo, custom } = verified
+    if (!custom || !custom.order_id) return { errcode: 1, errmsg: '缺少订单关联' }
+
+    const orderId = custom.order_id
+    const oRes = await db.collection('orders').doc(orderId).get()
+    if (!oRes.data || oRes.data.length === 0) return { errcode: 1, errmsg: '订单不存在' }
+    const order = oRes.data[0]
+    if (order.order_no !== outTradeNo) return { errcode: 1, errmsg: '订单号不匹配' }
+    if (order.status !== 0) {
+      // 已处理过, 直接告诉微信成功避免重复回调
+      return { errcode: 0, errmsg: 'OK' }
+    }
+
     const now = new Date()
     const log = (order.status_log || []).concat([{
-      status: 1, operator_id: schoolUser._id, operator_role: 'buyer', time: now, note: '买家已支付',
+      status: 1, operator_id: order.buyer_id, operator_role: 'system', time: now,
+      note: '微信支付成功 ' + (verified.transactionId || ''),
     }])
-    await db.collection('orders').doc(order_id).update({
+    await db.collection('orders').doc(orderId).update({
       status: 1,
       status_log: log,
       paid_at: now,
+      pay_amount: order.amount, // 实际支付金额 (未来支持优惠时用 verified.totalFee)
+      transaction_id: verified.transactionId || '',
       update_date: now,
     })
-    return { success: true }
+
+    return { errcode: 0, errmsg: 'OK' }
   },
 
   ship: async (params, context) => {
@@ -273,7 +338,54 @@ const ACTIONS = {
       status: 2,
       update_date: now,
     }).catch(function () {})
+    // 双方信用分各 +1 (交易成功奖励)
+    await adjustCredit(order.buyer_id, 1)
+    await adjustCredit(order.seller_id, 1)
     return { success: true }
+  },
+
+  /**
+   * 定时任务: 自动取消超时未支付订单 (status=0 且 create_date 超过 24h)
+   * 通过 cloudfunction-config.triggers 配置为 cron 触发 (每小时一次)
+   * 不需要登录态, context.UNIID_USER 不存在
+   */
+  timeoutScan: async (params, context) => {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    const expired = await db.collection('orders')
+      .where({
+        status: 0,
+        create_date: dbCmd.lt(cutoff),
+      })
+      .limit(100)
+      .get()
+
+    if (expired.data.length === 0) {
+      return { scanned: 0, cancelled: 0 }
+    }
+
+    let cancelled = 0
+    for (const order of expired.data) {
+      try {
+        const now = new Date()
+        const log = (order.status_log || []).concat([{
+          status: 4, operator_id: 'system', operator_role: 'system', time: now,
+          note: '超时未支付自动取消',
+        }])
+        await db.collection('orders').doc(order._id).update({
+          status: 4,
+          status_log: log,
+          cancelled_at: now,
+          cancel_reason: '超时未支付自动取消',
+          update_date: now,
+        })
+        // 买家超时未支付 -1 信用分 (比主动取消轻)
+        await adjustCredit(order.buyer_id, -1)
+        cancelled++
+      } catch (e) {
+        console.error('[order-co.timeoutScan] cancel failed:', order._id, e.message)
+      }
+    }
+    return { scanned: expired.data.length, cancelled }
   },
 }
 

@@ -33,6 +33,9 @@ const actionBtns = computed(() => {
     } else if (o.status === 2) {
       btns.push({ label: '确认收货', type: 'primary', action: 'confirm' })
     }
+    if (o.status === 3) {
+      btns.push({ label: '去评价', type: 'primary', action: 'goComment' })
+    }
   } else {
     if (o.status === 1 && o.trade_method === 'express') {
       btns.push({ label: '已发货', type: 'primary', action: 'ship' })
@@ -77,7 +80,9 @@ async function doAction(act: string) {
         uni.showToast({ title: '请填写收货地址', icon: 'none' })
         return
       }
-      await payOrder(order.value.order._id)
+      const r: any = await payOrder(order.value.order._id)
+      const uniPay = require('uni-pay')
+      await uniPay.requestPayment(r.provider, r.orderInfo)
       uni.showToast({ title: '支付成功', icon: 'success' })
     } else if (act === 'ship') {
       await shipOrder(order.value.order._id)
@@ -85,6 +90,10 @@ async function doAction(act: string) {
     } else if (act === 'confirm') {
       await confirmOrder(order.value.order._id)
       uni.showToast({ title: '已完成', icon: 'success' })
+    } else if (act === 'goComment') {
+      const title = encodeURIComponent(order.value.order.product_snapshot?.title || '')
+      uni.navigateTo({ url: '/pages/order/comment/index?order_id=' + order.value.order._id + '&title=' + title })
+      return
     }
     await load(order.value.order._id)
   } catch (e: any) {

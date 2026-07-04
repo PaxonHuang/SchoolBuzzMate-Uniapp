@@ -3,14 +3,23 @@
   "version": "1.0.0",
   "description": "订单云函数（校趣闪搭）",
   "main": "index.obj.js",
-  "dependencies": {},
+  "dependencies": {
+    "uni-pay": "file:../common/uni-pay"
+  },
   "extensions": {
-    "uni-cloud-jql": {}
+    "uni-cloud-jql": {},
+    "uni-pay-notify": {}
   },
   "cloudfunction-config": {
     "concurrency": 10,
     "memorySize": 256,
     "timeout": 10,
-    "triggers": []
+    "triggers": [
+      {
+        "name": "timeoutScan",
+        "type": "timer",
+        "config": "0 0 * * * *"
+      }
+    ]
   }
 }

@@ -12,3 +12,5 @@ dist/
 *.sw?
 unpackage/
 .hbuilderx/
+_tmp_*/
+tmp/

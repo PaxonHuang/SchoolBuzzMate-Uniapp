@@ -57,6 +57,8 @@ export interface OrderBase {
   status: OrderStatus
   trade_method: OrderTradeMethod
   remark?: string
+  address?: OrderAddress
+  status_log?: OrderStatusLog[]
   create_date: string
   update_date?: string
   paid_at?: string
@@ -76,26 +78,24 @@ export interface OrderListItem extends OrderBase {
   }
 }
 
-/** 订单详情 */
-export interface OrderDetail extends OrderBase {
-  address?: OrderAddress
-  status_log: OrderStatusLog[]
-  buyer: {
-    _id: string
-    nickname: string
-    avatar: string
-    credit_score: number
-    school_name?: string
-  }
-  seller: {
-    _id: string
-    nickname: string
-    avatar: string
-    credit_score: number
-    school_name?: string
-  }
+/** 订单上下文中对方用户信息 */
+export interface OrderPartyInfo {
+  _id: string
+  nickname: string
+  avatar: string
+  credit_score: number
+  school_name?: string
+}
+
+/** 订单详情 (包装类型, order 字段嵌 OrderBase) */
+export interface OrderDetail {
+  order: OrderBase
   /** 当前用户在该订单里的角色 */
   role: 'buyer' | 'seller'
+  buyer: OrderPartyInfo
+  seller: OrderPartyInfo
+  address?: OrderAddress
+  status_log: OrderStatusLog[]
 }
 
 /** 下单参数 */

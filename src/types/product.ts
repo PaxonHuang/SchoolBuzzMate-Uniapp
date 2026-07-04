@@ -44,7 +44,18 @@ export interface ProductListItem {
   is_liked: boolean
 }
 
-/** 商品详情 */
+/** 商品详情里的卖家信息 (getDetail 返回的 seller 字段) */
+export interface ProductSellerInfo {
+  _id: string
+  nickname: string
+  avatar: string
+  credit_score: number
+  school_name: string
+  college?: string
+  product_count: number
+}
+
+/** 商品基础数据 (数据库中的商品记录,不含卖家/点赞/所有权等运行时字段) */
 export interface ProductDetail {
   _id: string
   seller_id: string
@@ -64,15 +75,13 @@ export interface ProductDetail {
   comment_count: number
   publish_time: string
   create_date: string
-  seller: {
-    _id: string
-    nickname: string
-    avatar: string
-    credit_score: number
-    school_name: string
-    college?: string
-    product_count: number
-  }
+  update_date?: string
+}
+
+/** 商品详情 (包装类型: product 嵌 ProductDetail, 附卖家信息) */
+export interface ProductDetailResult {
+  product: ProductDetail
+  seller: ProductSellerInfo
   is_liked: boolean
   is_owner: boolean
 }

@@ -81,7 +81,7 @@ function goDetail(id: string) {
 
 onLoad(function (q: any) {
   role.value = q && q.type === 'sell' ? 'seller' : 'buyer'
-  uni.setNavigationBarTitle({ title: role.value === 'sell' ? '我卖出的' : '我买到的' })
+  uni.setNavigationBarTitle({ title: role.value === 'seller' ? '我卖出的' : '我买到的' })
 })
 
 onShow(function () { load(true) })

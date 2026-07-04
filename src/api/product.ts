@@ -2,6 +2,7 @@ import { callCloudFunction } from './unicloud'
 import type {
   ProductListParams,
   ProductListResult,
+  ProductDetailResult,
   ProductDetail,
   CreateProductParams,
   UpdateProductParams,
@@ -13,8 +14,8 @@ export function getProductList(params: ProductListParams = {}): Promise<ProductL
 }
 
 /** 获取商品详情 */
-export function getProductDetail(product_id: string): Promise<ProductDetail> {
-  return callCloudFunction<ProductDetail>('product-co', 'getDetail', { product_id })
+export function getProductDetail(product_id: string): Promise<ProductDetailResult> {
+  return callCloudFunction<ProductDetailResult>('product-co', 'getDetail', { product_id })
 }
 
 /** 发布商品 */

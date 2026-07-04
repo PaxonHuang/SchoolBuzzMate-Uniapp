@@ -1,0 +1,135 @@
+{
+  "bsonType": "object",
+  "required": ["order_no", "buyer_id", "seller_id", "product_id", "product_snapshot", "amount", "status", "trade_method", "create_date"],
+  "permission": {
+    "create": false,
+    "read": false,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "订单ID" },
+    "order_no": {
+      "bsonType": "string",
+      "description": "订单号（业务唯一，格式：SJ+yyyyMMddHHmmss+6位随机）",
+      "title": "订单号"
+    },
+    "buyer_id": {
+      "bsonType": "string",
+      "description": "买家ID（关联 school_users._id）",
+      "title": "买家ID"
+    },
+    "seller_id": {
+      "bsonType": "string",
+      "description": "卖家ID（关联 school_users._id）",
+      "title": "卖家ID"
+    },
+    "product_id": {
+      "bsonType": "string",
+      "description": "商品ID（关联 products._id）",
+      "title": "商品ID"
+    },
+    "product_snapshot": {
+      "bsonType": "object",
+      "description": "商品快照（标题/价格/图片/分类/成色，避免商品下架后订单信息丢失）",
+      "title": "商品快照",
+      "properties": {
+        "title": { "bsonType": "string" },
+        "price": { "bsonType": "double" },
+        "original_price": { "bsonType": "double" },
+        "images": { "bsonType": "array", "items": { "bsonType": "string" } },
+        "category": { "bsonType": "string" },
+        "condition": { "bsonType": "string" },
+        "trade_method": { "bsonType": "array", "items": { "bsonType": "string" } }
+      }
+    },
+    "amount": {
+      "bsonType": "double",
+      "description": "订单总额",
+      "title": "订单金额",
+      "minimum": 0.01
+    },
+    "pay_amount": {
+      "bsonType": "double",
+      "description": "实付金额（默认等于 amount，M3.2 接入优惠时使用）",
+      "title": "实付金额",
+      "minimum": 0
+    },
+    "status": {
+      "bsonType": "int",
+      "description": "订单状态：0待支付 1待发货 2待收货 3已完成 4已取消 5退款/售后",
+      "title": "订单状态",
+      "defaultValue": 0,
+      "enum": [0, 1, 2, 3, 4, 5]
+    },
+    "trade_method": {
+      "bsonType": "string",
+      "description": "交易方式：self_pickup 自提 / express 快递",
+      "title": "交易方式",
+      "enum": ["self_pickup", "express"]
+    },
+    "address": {
+      "bsonType": "object",
+      "description": "收货地址（仅快递订单必填）",
+      "title": "收货地址",
+      "properties": {
+        "name": { "bsonType": "string", "maxLength": 20 },
+        "phone": { "bsonType": "string", "maxLength": 20 },
+        "address": { "bsonType": "string", "maxLength": 100 },
+        "detail": { "bsonType": "string", "maxLength": 100 }
+      }
+    },
+    "remark": {
+      "bsonType": "string",
+      "description": "买家备注",
+      "maxLength": 200
+    },
+    "status_log": {
+      "bsonType": "array",
+      "description": "状态变更日志（每次状态变化追加一条）",
+      "items": {
+        "bsonType": "object",
+        "properties": {
+          "status": { "bsonType": "int" },
+          "operator_id": { "bsonType": "string" },
+          "operator_role": { "bsonType": "string", "enum": ["buyer", "seller", "system"] },
+          "time": { "bsonType": "date" },
+          "note": { "bsonType": "string", "maxLength": 100 }
+        }
+      }
+    },
+    "paid_at": {
+      "bsonType": "date",
+      "description": "支付时间（占位标记已付）"
+    },
+    "shipped_at": {
+      "bsonType": "date",
+      "description": "发货时间"
+    },
+    "received_at": {
+      "bsonType": "date",
+      "description": "收货时间"
+    },
+    "completed_at": {
+      "bsonType": "date",
+      "description": "完成时间"
+    },
+    "cancelled_at": {
+      "bsonType": "date",
+      "description": "取消时间"
+    },
+    "cancel_reason": {
+      "bsonType": "string",
+      "description": "取消原因",
+      "maxLength": 200
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "创建时间"
+    },
+    "update_date": {
+      "bsonType": "date",
+      "description": "更新时间"
+    }
+  }
+}

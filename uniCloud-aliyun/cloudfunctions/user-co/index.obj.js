@@ -94,13 +94,26 @@ const ACTIONS = {
   getUserStats: async (params, context) => {
     const userId = context.UNIID_USER._id
 
+    // products/orders 的 seller_id/buyer_id 存的是 school_users._id,
+    // 先把当前用户的 school_users._id 查出来再统计,否则永远为 0
+    const schoolUserRes = await db.collection('school_users')
+      .where({ user_id: userId })
+      .field({ _id: true })
+      .get()
+    const schoolUserId = schoolUserRes.data?.[0]?._id || null
+
     const [productCount, orderBuyCount, orderSellCount, favoriteCount] = await Promise.all([
-      db.collection('products').where({ seller_id: userId }).count(),
-      db.collection('orders').where({ buyer_id: userId }).count(),
-      db.collection('orders').where({ seller_id: userId }).count(),
+      schoolUserId
+        ? db.collection('products').where({ seller_id: schoolUserId }).count()
+        : { total: 0 },
+      schoolUserId
+        ? db.collection('orders').where({ buyer_id: schoolUserId }).count()
+        : { total: 0 },
+      schoolUserId
+        ? db.collection('orders').where({ seller_id: schoolUserId }).count()
+        : { total: 0 },
       db.collection('favorites').where({ user_id: userId }).count(),
     ])
-
     return {
       productCount: productCount.total,
       orderBuyCount: orderBuyCount.total,

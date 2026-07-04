@@ -1,0 +1,29 @@
+{
+  "bsonType": "object",
+  "required": ["user_id", "product_id", "create_date"],
+  "permission": {
+    "create": true,
+    "read": true,
+    "update": false,
+    "delete": true
+  },
+  "properties": {
+    "_id": { "description": "收藏记录ID" },
+    "user_id": {
+      "bsonType": "string",
+      "description": "收藏用户ID（关联 uni-id-users._id）",
+      "title": "用户ID",
+      "foreignKey": "uni-id-users._id"
+    },
+    "product_id": {
+      "bsonType": "string",
+      "description": "商品ID（关联 products._id）",
+      "title": "商品ID",
+      "foreignKey": "products._id"
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "收藏时间"
+    }
+  }
+}

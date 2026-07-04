@@ -7,8 +7,10 @@ import 'dayjs/locale/zh-cn'
 import { getProductDetail, toggleProductLike } from '@/api/product'
 import { toggleFavorite, checkFavoritedBatch } from '@/api/favorite'
 import { createOrder } from '@/api/order'
+import { getCommentsByProduct } from '@/api/comment'
 import { useUserStore } from '@/store/user'
 import { CATEGORY_OPTIONS, CONDITION_OPTIONS, type TradeMethod } from '@/types/product'
+import type { CommentItem } from '@/types/comment'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
@@ -20,6 +22,7 @@ const isLiked = ref(false)
 const isFavorited = ref(false)
 const isOwner = ref(false)
 const loading = ref(true)
+const commentList = ref<CommentItem[]>([])
 const currentImageIndex = ref(0)
 const showBuySheet = ref(false)
 const selectedTrade = ref<TradeMethod>('self_pickup')
@@ -142,6 +145,10 @@ async function loadDetail(product_id: string) {
         isFavorited.value = favRes.favorited.indexOf(product_id) >= 0
       } catch (_) { /* 静默 */ }
     }
+    // 加载评价列表 (非阻塞, 失败不影响主流程)
+    getCommentsByProduct(product_id, 1, 5).then(function (r) {
+      commentList.value = r.list
+    }).catch(function () { /* 静默 */ })
   } catch (e: any) {
     uni.showToast({ title: e.message || '加载失败', icon: 'none' })
   } finally {
@@ -241,9 +248,35 @@ onLoad((options) => {
       <view class="section-header">
         <text class="section-title">评论 ({{ product.comment_count || 0 }})</text>
       </view>
-      <view class="comment-placeholder">
+      <view v-if="commentList.length === 0" class="comment-placeholder">
         <text class="i-carbon-chat comment-icon"></text>
-        <text class="comment-text">评论功能开发中...</text>
+        <text class="comment-text">暂无评价</text>
+      </view>
+      <view v-else class="comment-list">
+        <view v-for="c in commentList" :key="c._id" class="comment-item">
+          <view class="comment-head">
+            <image v-if="c.buyer?.avatar" :src="c.buyer.avatar" class="c-avatar" mode="aspectFill" />
+            <view v-else class="c-avatar c-avatar-blank">
+              <text class="i-carbon-user"></text>
+            </view>
+            <view class="c-meta">
+              <text class="c-name">{{ c.buyer?.nickname || '匿名用户' }}</text>
+              <view class="c-rating">
+                <text
+                  v-for="n in 5"
+                  :key="n"
+                  class="c-star"
+                  :class="{ active: n <= c.rating }"
+                >★</text>
+              </view>
+            </view>
+            <text class="c-time">{{ formatTime(c.create_date) }}</text>
+          </view>
+          <text v-if="c.content" class="c-content">{{ c.content }}</text>
+          <view v-if="c.tags && c.tags.length > 0" class="c-tags">
+            <text v-for="t in c.tags" :key="t" class="c-tag">{{ t }}</text>
+          </view>
+        </view>
       </view>
     </view>
 
@@ -367,6 +400,7 @@ onLoad((options) => {
 .comment-placeholder { display: flex; flex-direction: column; align-items: center; padding: 40rpx 0; gap: 12rpx; }
 .comment-icon { font-size: 48rpx; color: #ccc; }
 .comment-text { font-size: 24rpx; color: #999; }
+.comment-list { .comment-item { padding: 20rpx 0; border-bottom: 1rpx solid #f5f5f5; &:last-child { border-bottom: none; } .comment-head { display: flex; align-items: center; gap: 16rpx; .c-avatar { width: 64rpx; height: 64rpx; border-radius: 50%; } .c-avatar-blank { background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 28rpx; } .c-meta { flex: 1; .c-name { font-size: 26rpx; color: #333; display: block; } .c-rating { display: flex; gap: 2rpx; margin-top: 4rpx; .c-star { font-size: 22rpx; color: #e5e5e5; line-height: 1; &.active { color: #ff9500; } } } } .c-time { font-size: 22rpx; color: #999; } } .c-content { font-size: 28rpx; color: #333; line-height: 1.6; margin-top: 12rpx; display: block; } .c-tags { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; .c-tag { font-size: 22rpx; padding: 4rpx 14rpx; background: #f5f5f5; color: #666; border-radius: 4rpx; } } } }
 .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; height: 100rpx; background: white; display: flex; align-items: center; padding: 0 20rpx; gap: 12rpx; box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05); z-index: 100; }
 .action-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100rpx; gap: 4rpx; font-size: 36rpx; color: #666; &.liked { color: #fa5151; } &.fav { color: #ff9500; } }
 .action-text { font-size: 20rpx; }

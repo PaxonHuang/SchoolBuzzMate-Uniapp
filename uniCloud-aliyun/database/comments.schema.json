@@ -1,0 +1,65 @@
+{
+  "bsonType": "object",
+  "required": ["order_id", "product_id", "buyer_id", "seller_id", "rating", "create_date"],
+  "permission": {
+    "create": true,
+    "read": true,
+    "update": false,
+    "delete": false
+  },
+  "properties": {
+    "_id": { "description": "评价ID" },
+    "order_id": {
+      "bsonType": "string",
+      "description": "订单ID (关联 orders._id)",
+      "title": "订单ID",
+      "foreignKey": "orders._id"
+    },
+    "product_id": {
+      "bsonType": "string",
+      "description": "商品ID",
+      "title": "商品ID",
+      "foreignKey": "products._id"
+    },
+    "buyer_id": {
+      "bsonType": "string",
+      "description": "买家ID (school_users._id)",
+      "title": "买家ID",
+      "foreignKey": "school_users._id"
+    },
+    "seller_id": {
+      "bsonType": "string",
+      "description": "卖家ID (school_users._id)",
+      "title": "卖家ID",
+      "foreignKey": "school_users._id"
+    },
+    "rating": {
+      "bsonType": "int",
+      "description": "评分 1-5 星",
+      "title": "评分",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "content": {
+      "bsonType": "string",
+      "description": "评价内容",
+      "title": "评价内容",
+      "maxLength": 500
+    },
+    "tags": {
+      "bsonType": "array",
+      "description": "评价标签 (如: 描述相符/服务态度好/价格合理)",
+      "title": "标签",
+      "items": { "bsonType": "string", "maxLength": 20 }
+    },
+    "anonymous": {
+      "bsonType": "bool",
+      "description": "是否匿名评价",
+      "defaultValue": false
+    },
+    "create_date": {
+      "bsonType": "date",
+      "description": "评价时间"
+    }
+  }
+}

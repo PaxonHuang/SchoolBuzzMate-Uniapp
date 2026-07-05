@@ -137,6 +137,7 @@ exports.main = async (event, context) => {
 | M1: 用户系统 | ✅ | 登录+认证+学校 |
 | M2: 商品系统 | ✅ | 商品发布/列表/详情/搜索 |
 | M3: 交易核心 | 📋 | 订单+支付 |
+| M3: 交易核心 | ✅ | 订单+uni-pay支付+超时+信用分+评价 (2026-07-05 commit `1d6fcb1`) |
 | M4: MVP上线 | 📋 | 审核+发布 |
 
 ## 相关文档
@@ -151,3 +152,39 @@ exports.main = async (event, context) => {
 - 列表分页默认 `size=10`，最大 50（云函数中硬编码 `Math.min(params.size || 10, 50)`）。
 - 发布商品前必须通过学生认证（`product-co/create` 会校验）。
 - 上传走 `src/api/upload.ts`，底层调 `uniCloud.uploadFile`，按目录分类（`schoolbuzz/`、`student-cards/`、`avatars/`）。
+
+## 🧠 深度记忆 (.claude/memory/)
+
+打开本项目时, **先读 .claude/memory/ 下相关主题文件** 避免重复走弯路:
+
+| 主题 | 何时读 |
+|------|------|
+| rchitecture.md | 改云函数/API/用户体系/订单结构前 |
+| m3-transaction-core.md | 改订单/支付/评价/信用分/超时逻辑前 |
+| coding-conventions.md | 新建页面/云函数/API 之前需要遵循的代码模式 |
+| known-issues.md | 遇到 sandbox/编码/esbuild/依赖问题时先看 |
+| pending-actions.md | 想知道用户还有哪些待操作 |
+
+
+## 🚦 关键约定 (重要)
+
+- 永远走 `src/api/*.ts` 调云函数, 不在页面直接调 `uniCloud.callFunction`
+- `products.seller_id` 指向 `school_users._id`, 不是 `uni-id-users._id` (三表用户模型)
+- 云函数文件名用 `.obj.js` 后缀, 统一 ACTIONS map + `action` 参数分发
+- 类型定义在 `src/types/`, 前后端共用, 改字段前后端同步
+- 所有云函数返回 `{ code, msg, data }`, 前端 `callCloudFunction` 自动 throw
+- 不要用 HBuilderX (Windows + Node v22 下有 ESM bug); 用 `pnpm` CLI + 微信开发者工具
+- 云函数永远走软删除 (`status=0`), 不直接 `db.collection().remove()`
+
+## 最近一次工作 (M3 增量, 2026-07-03 ~ 07-05)
+
+最近 commit (从 main HEAD 倒序):
+- `1d6fcb1` docs: 添加 CHANGELOG.md 记录 M3 全流程
+- `13f849c` chore(e2e): 添加端到端冒烟测试脚本 + npm script
+- `08eadfe` feat(comment): 评价系统 (comment-co + 评价页 + 商品页评价列表)
+- `d5d677e` feat(order): 接入 uni-pay 微信支付 + 订单超时清理 + 信用分自动调整
+- `89f213f` chore(deploy): 添加 UniCloud 一键部署脚本 + npm script
+- `43e1dc2` fix(types+product+order): 修复 type-check 错误
+- `086a4bd` feat(order+product): M3 交易核心 + M2 收尾补全
+
+**重要**: 不要回滚这些 commit; 它们是 M3 完整状态。

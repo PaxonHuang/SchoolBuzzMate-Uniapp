@@ -27,6 +27,8 @@
     "lint:fix": "eslint --fix",
     "deploy:cloud": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1",
     "deploy:cloud:order": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1 -Functions order-co,favorites-co",
+    "e2e:check": "powershell -ExecutionPolicy Bypass -File scripts/e2e-check.ps1",
+    "e2e:full": "powershell -ExecutionPolicy Bypass -File scripts/e2e-check.ps1 -TestFlow",
     "prepare": "husky"
   },
   "dependencies": {

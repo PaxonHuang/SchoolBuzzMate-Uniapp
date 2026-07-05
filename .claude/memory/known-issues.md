@@ -120,3 +120,13 @@ const schoolUserId = suRes.data?.[0]?._id || null
 **症状**: 之前 git 操作失败留下 lock 文件, 后续 git 全部报 lock 占用.
 
 **解决方案**: `Remove-Item .git\index.lock` (需要 escalated 权限), 或关掉 Codex session 重开.
+
+## 问题 14: 历史会话里混有其他项目和敏感凭证
+
+**症状**: 从 Codex 历史迁移到 Claude Code 时, 会看到 NJTS Astro 博客、Cloudflare Pages、GitHub PAT、Cloudflare token、STM32 项目等内容夹在一起。
+
+**解决方案**:
+- 只把 SchoolBuzzMate 相关的项目事实写入 `.claude/memory/`。
+- 不要把原始聊天全文导入仓库。
+- 不要复述或保存任何 token、PAT、API key、支付密钥。
+- 如果后续任务确实需要凭证, 让用户通过安全方式重新确认, 或检查本机环境变量/平台后台配置。

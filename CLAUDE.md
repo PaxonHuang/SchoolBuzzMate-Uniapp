@@ -136,8 +136,7 @@ exports.main = async (event, context) => {
 | M0: 环境就绪 | ✅ | 项目骨架+文档 |
 | M1: 用户系统 | ✅ | 登录+认证+学校 |
 | M2: 商品系统 | ✅ | 商品发布/列表/详情/搜索 |
-| M3: 交易核心 | 📋 | 订单+支付 |
-| M3: 交易核心 | ✅ | 订单+uni-pay支付+超时+信用分+评价 (2026-07-05 commit `1d6fcb1`) |
+| M3: 交易核心 | ⚠️ 代码已完成, 真机验证待跑 | 订单+uni-pay支付+超时+信用分+评价；先读 `.claude/memory/current-handoff.md` |
 | M4: MVP上线 | 📋 | 审核+发布 |
 
 ## 相关文档
@@ -159,11 +158,13 @@ exports.main = async (event, context) => {
 
 | 主题 | 何时读 |
 |------|------|
-| rchitecture.md | 改云函数/API/用户体系/订单结构前 |
+| current-handoff.md | 每次打开项目先读, 确认当前真实状态和下一步 |
+| architecture.md | 改云函数/API/用户体系/订单结构前 |
 | m3-transaction-core.md | 改订单/支付/评价/信用分/超时逻辑前 |
 | coding-conventions.md | 新建页面/云函数/API 之前需要遵循的代码模式 |
 | known-issues.md | 遇到 sandbox/编码/esbuild/依赖问题时先看 |
 | pending-actions.md | 想知道用户还有哪些待操作 |
+| session-source-map.md | 需要追溯 Codex 历史来源和筛选原则时 |
 
 
 ## 🚦 关键约定 (重要)
@@ -179,6 +180,7 @@ exports.main = async (event, context) => {
 ## 最近一次工作 (M3 增量, 2026-07-03 ~ 07-05)
 
 最近 commit (从 main HEAD 倒序):
+- `101aefc` docs(claude): 迁移记忆到 .claude/memory/ 主题文件 + 更新 CLAUDE.md 入口
 - `1d6fcb1` docs: 添加 CHANGELOG.md 记录 M3 全流程
 - `13f849c` chore(e2e): 添加端到端冒烟测试脚本 + npm script
 - `08eadfe` feat(comment): 评价系统 (comment-co + 评价页 + 商品页评价列表)
@@ -187,4 +189,6 @@ exports.main = async (event, context) => {
 - `43e1dc2` fix(types+product+order): 修复 type-check 错误
 - `086a4bd` feat(order+product): M3 交易核心 + M2 收尾补全
 
-**重要**: 不要回滚这些 commit; 它们是 M3 完整状态。
+**重要**: 不要回滚这些 commit; 它们是 M3 主线实现状态, 但真机验证和云端部署仍按 `current-handoff.md` 继续。
+
+**当前真实状态提示**: 最近一次 Codex 迁移审计时, worktree 已不是干净状态: `src/pages/product/detail.vue` 有未提交修改, `.claude/settings.local.json` 和若干 `_tmp_*` 文件未跟踪。本文件和 `.claude/memory/` 也可能有新的迁移文档未提交。继续前先跑 `git status --short` 并阅读 `.claude/memory/current-handoff.md`。

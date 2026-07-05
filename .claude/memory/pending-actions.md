@@ -1,6 +1,13 @@
-# 用户待操作事项 (截至 2026-07-05, M3 完成时)
+# 用户待操作事项 (截至 2026-07-05 迁移审计)
 
-代码层面 M3 已经全部完成并 commit 干净. 还差 **2 件事** 用户必须在 Windows 原生 PowerShell (非 Codex sandbox) 完成:
+M3 代码主线已经完成并有 commit 记录, 但当前 worktree 不是干净状态。继续前先以 `git status --short` 和当前 diff 为准, 不要只相信旧记忆里的“commit 干净”。
+
+## 事项 0: 先处理当前 worktree
+
+- `src/pages/product/detail.vue` 有未提交修改。迁移审计时看到 `previewImage` 函数签名疑似被重复插入, 可能导致语法错误。
+- `.claude/settings.local.json` 未跟踪, 通常是 Claude 本地设置, 不要随意提交。
+- `_tmp_*` 空文件未跟踪, 多半来自 pnpm/sandbox 临时文件, 提交前确认是否可删除或加入忽略。
+- 本次迁移会修改 `CLAUDE.md` 和 `.claude/memory/*`; 这些是为了 Claude Code 接力, 可以作为 docs commit 单独提交。
 
 ## 事项 1: 跑端到端冒烟测试 + 部署
 
@@ -27,11 +34,11 @@ pnpm e2e:check
 - 在 HBuilderX 里打开本项目, 右键 uniCloud-aliyun -> 关联云服务空间 -> 选择 `mp-c3e590c7-e8f1-4877-95c5-346ba36e296c`
 - 首次上传后再用脚本
 
-或者: 在 HBuilderX 里直接右键 uniCloud-aliyun -> 上传所有云函数 (一次到位).
+或者: 在 HBuilderX 里直接右键 uniCloud-aliyun -> 上传所有云函数 (一次到位). 注意: HBuilderX 只承担云空间关联/上传, 编译优先走 pnpm CLI。
 
 ## 事项 2: 同步 `../SchoolBuzzDocs/PROGRESS.md`
 
-`PROGRESS.md` 在 Codex sandbox 可写区外 (`E:\NJTS-Codeprojects-2023\WechatMiniproject\SchoolBuzzDocs\`), 我没法直接改.
+`PROGRESS.md` 位于 `E:\NJTS-Codeprojects-2023\WechatMiniproject\SchoolBuzzDocs\`.
 
 需要用户手动把 `CHANGELOG.md` (项目根目录) 的内容贴到 `../SchoolBuzzDocs/PROGRESS.md` 里, 或者直接用 `CHANGELOG.md` 替换 M3 那段.
 
@@ -68,11 +75,12 @@ uni-pay 需要商户号配置 (在 `uni-config-center` 下, 类似 uni-id 的配
 
 - [x] M3 代码全部 commit (`1d6fcb1` 起 HEAD 倒序 6 个 commit)
 - [x] `vue-tsc --noEmit` my code 0 错误 (含 `@dcloudio/uni-app` 手动 symlink 后)
+- [ ] **TODO** 修正/确认 `src/pages/product/detail.vue` 当前未提交修改
 - [ ] **TODO** 真机 `pnpm install` 成功 (sandbox 跑不动)
 - [ ] **TODO** 真机 `pnpm run build:mp-weixin` 成功
 - [ ] **TODO** 云函数部署到 mp-c3e590c7-... 服务空间
-- [ ] **TODO** 跑一遍订单完整流程 (发布→下单→支付→发货→确认→评价)
-- [ ] **TODO** `../SchoolBuzzDocs/PROGRESS.md` 同步 M3 ✅
+- [ ] **TODO** 跑一遍订单完整流程 (发布 -> 下单 -> 支付 -> 发货/自提 -> 确认 -> 评价)
+- [ ] **TODO** `../SchoolBuzzDocs/PROGRESS.md` 同步 M3 完成状态
 
 完成后开 M4 (审核 + 提审 + 性能优化).
 

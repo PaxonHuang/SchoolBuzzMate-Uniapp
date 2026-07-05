@@ -68,7 +68,7 @@ async function handleToggleFavorite() {
   }
 }
 
-function previewImage(index: number) {
+function previewImage(index: number | string) {
   if (!product.value) return
   uni.previewImage({ urls: product.value.images, current: index })
 }
@@ -128,6 +128,10 @@ async function submitOrder() {
   } finally {
     buying.value = false
   }
+}
+
+function onSwiperChange(e: any) {
+  currentImageIndex.value = e.detail.current
 }
 
 async function loadDetail(product_id: string) {
@@ -197,7 +201,7 @@ onLoad((options) => {
       indicator-color="rgba(255,255,255,0.5)"
       indicator-active-color="#fff"
       :autoplay="false"
-      @change="e => currentImageIndex = e.detail.current"
+      @change="onSwiperChange"
     >
       <swiper-item v-for="(img, index) in product.images" :key="index">
         <image :src="img" class="product-image" mode="aspectFill" @click="previewImage(index)" />

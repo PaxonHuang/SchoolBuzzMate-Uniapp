@@ -88,10 +88,36 @@
 
 ## 待办 (用户 GUI 一次性操作后)
 
-- [ ] Phase 5: 部署 8 个云函数 (auth-co 通过 common 共享, 单独 7 个 co: user/school/product/order/favorites/comment + common/uni-pay)
-- [ ] Phase 6: 部署所有 DB Schema (products, orders, favorites, product_likes, school_users, schools, comments)
-- [ ] Phase 7: 上传 mp-weixin 体验版 (Phase 2 产物 dist/build/mp-weixin)
-- [ ] Phase 8: 真机 e2e 冒烟 (发布 → 下单 → 微信支付 → 发货 → 确认 → 评价)
+- [x] Phase 5: 部署 8 个云函数 (用户已通过 HBuilderX GUI 完成)
+- [x] Phase 6: 部署所有 DB Schema (用户已通过 HBuilderX GUI 完成)
+- [x] Phase 7: 上传 mp-weixin 体验版 (微信开发者工具 CLI 成功上传 0.1.0, 689.9 KB)
+- [ ] Phase 8: 真机 e2e 冒烟 (`scripts/e2e-test-checklist.md` 12 步流程, 等用户扫码走)
+
+## Phase 7 上传成功细节 (commit bb4288f 后)
+
+**根因**: `@uni-helper/vite-plugin-uni-manifest` 1.x 在 `src/manifest.json` 写入空 `mp-weixin: { appid: "" }` 块, 覆盖了 `mpWeixin.appid` 真实配置 (`wxbc1260ebbefc26f6`), 导致编译输出 `appid="touristappid"`, 微信开发者工具拒绝上传 (`code 10: AppID 不合法`).
+
+**修复**: 写 `scripts/fix-mp-weixin-appid.mjs` postbuild 脚本, 强制把 `dist/<platform>/project.config.json` 的 `appid` 改回 `wxbc1260ebbefc26f6`. `package.json` `build:mp-weixin` 加 `&& node scripts/fix-mp-weixin-appid.mjs`.
+
+**微信开发者工具 CLI 流程** (用户已 GUI 扫码登录后):
+```bash
+# 启动 IDE
+"/e/Tencent微信web开发者工具/微信web开发者工具/cli.bat" open \
+  --project "E:\\NJTS-Codeprojects-2023\\WechatMiniproject\\SchoolBuzzUniAPP\\dist\\build\\mp-weixin" \
+  --appid wxbc1260ebbefc26f6
+# CLI 自动启动 HTTP server on port 36755 (或 19322 如果 IDE 已在跑)
+
+# 查登录态
+"cli.bat" islogin --port <port>  # {"login":true} 需用户 GUI 扫码一次
+
+# 上传体验版
+"cli.bat" upload --port <port> \
+  --project "E:\\...\\dist\\build\\mp-weixin" \
+  --appid wxbc1260ebbefc26f6 \
+  --version "0.1.0" --desc "M3 完整闭环发布"
+```
+
+⚠️ **CLI 登录必须 GUI 扫码一次** (login false 时). 之后会话内保持 login true.
 
 ## 跨项目参考
 

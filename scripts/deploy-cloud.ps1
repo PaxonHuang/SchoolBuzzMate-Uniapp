@@ -19,10 +19,10 @@ $FunctionsRoot = Join-Path $CloudRoot "cloudfunctions"
 $SchemaRoot = Join-Path $CloudRoot "database"
 
 # HBuilderX CLI 路径 (按本机安装位置调整)
-$HBUILDERX_CLI = "E:\HBuilderX\HBuilderX\cli.bat"
+$HBUILDERX_CLI = "E:\HbuilderX\HBuilderX\cli.exe"
 if (-not (Test-Path $HBUILDERX_CLI)) {
     # 尝试默认安装位置
-    $HBUILDERX_CLI = "${env:ProgramFiles}\HBuilderX\HBuilderX\cli.bat"
+    $HBUILDERX_CLI = "${env:ProgramFiles}\HBuilderX\HBuilderX\cli.exe"
 }
 
 function Write-Step($n, $total, $msg) {

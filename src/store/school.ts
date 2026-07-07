@@ -52,6 +52,6 @@ export const useSchoolStore = defineStore('school', () => {
   }
 }, {
   persist: {
-    pick: ['currentSchoolId'],
+    paths: ['currentSchoolId'],
   },
 })

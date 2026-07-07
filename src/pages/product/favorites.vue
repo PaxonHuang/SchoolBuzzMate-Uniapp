@@ -102,7 +102,23 @@ onReachBottom(function () { load() })
 
 <style scoped lang="scss">
 .page { min-height: 100vh; background: #f5f5f5; padding: 20rpx 0 60rpx; }
-.empty { display: flex; flex-direction: column; align-items: center; padding: 200rpx 0; gap: 20rpx; .blank-icon { font-size: 100rpx; color: #ddd; } .empty-text { font-size: 26rpx; color: #999; } }
-.fav-card { background: white; margin: 0 20rpx 20rpx; border-radius: 16rpx; overflow: hidden; .fav-body { display: flex; gap: 20rpx; padding: 24rpx 30rpx; .thumb { width: 180rpx; height: 180rpx; border-radius: 12rpx; flex-shrink: 0; } .thumb.blank { background: #f5f5f5; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 48rpx; } .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; } .title { font-size: 28rpx; color: #333; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } .price { font-size: 32rpx; color: #ff6b00; font-weight: 600; } .time { font-size: 22rpx; color: #999; } } .fav-foot { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 30rpx; border-top: 1rpx solid #f5f5f5; .status-tag { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 4rpx; &.on { background: #e8f8ee; color: #07c160; } &.off { background: #f5f5f5; color: #999; } &.sold { background: #fff3e0; color: #ff9500; } } .unfav-btn { font-size: 24rpx; color: #fa5151; padding: 8rpx 20rpx; } }
-.load-more { padding: 30rpx; text-align: center; .hint { color: #999; font-size: 24rpx; } }
+.empty { display: flex; flex-direction: column; align-items: center; padding: 200rpx 0; gap: 20rpx; }
+.empty .blank-icon { font-size: 100rpx; color: #ddd; }
+.empty .empty-text { font-size: 26rpx; color: #999; }
+.fav-card { background: white; margin: 0 20rpx 20rpx; border-radius: 16rpx; overflow: hidden; }
+.fav-card .fav-body { display: flex; gap: 20rpx; padding: 24rpx 30rpx; }
+.fav-card .fav-body .thumb { width: 180rpx; height: 180rpx; border-radius: 12rpx; flex-shrink: 0; }
+.fav-card .fav-body .thumb.blank { background: #f5f5f5; display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 48rpx; }
+.fav-card .fav-body .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.fav-card .fav-body .title { font-size: 28rpx; color: #333; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fav-card .fav-body .price { font-size: 32rpx; color: #ff6b00; font-weight: 600; }
+.fav-card .fav-body .time { font-size: 22rpx; color: #999; }
+.fav-card .fav-foot { display: flex; align-items: center; justify-content: space-between; padding: 16rpx 30rpx; border-top: 1rpx solid #f5f5f5; }
+.fav-card .fav-foot .status-tag { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 4rpx; }
+.fav-card .fav-foot .status-tag.on { background: #e8f8ee; color: #07c160; }
+.fav-card .fav-foot .status-tag.off { background: #f5f5f5; color: #999; }
+.fav-card .fav-foot .status-tag.sold { background: #fff3e0; color: #ff9500; }
+.fav-card .fav-foot .unfav-btn { font-size: 24rpx; color: #fa5151; padding: 8rpx 20rpx; }
+.load-more { padding: 30rpx; text-align: center; }
+.load-more .hint { color: #999; font-size: 24rpx; }
 </style>

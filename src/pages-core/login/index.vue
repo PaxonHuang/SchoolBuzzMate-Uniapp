@@ -58,7 +58,7 @@ function handleAgreement() {
     <view class="login-area">
       <view class="login-btn" :class="{ loading }" @click="handleLogin">
         <wd-loading v-if="loading" color="#fff" size="36rpx" />
-        <text v-else class="i-carbon-wechat-filled btn-icon" />
+        <text v-else class="i-carbon-chat btn-icon" />
         <text>{{ loading ? '登录中...' : '微信一键登录' }}</text>
       </view>
 

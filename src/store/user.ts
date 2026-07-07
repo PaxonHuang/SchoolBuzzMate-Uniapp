@@ -22,9 +22,8 @@ export const useUserStore = defineStore('user', () => {
   async function login() {
     try {
       // 获取微信登录 code
-      const [err, loginRes] = await uni.login({ provider: 'weixin' })
-      if (err) {
-        console.error('[login] uni.login failed:', err)
+      const loginRes = await uni.login({ provider: 'weixin' })
+      if (!loginRes || !loginRes.code) {
         throw new Error('微信登录失败')
       }
 
@@ -102,6 +101,6 @@ export const useUserStore = defineStore('user', () => {
   }
 }, {
   persist: {
-    pick: ['token', 'profile'],
+    paths: ['token', 'profile'],
   },
 })

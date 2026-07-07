@@ -28,6 +28,10 @@ function handleLogout() {
     },
   })
 }
+
+function goToAbout() {
+  uni.navigateTo({ url: '/pages/user/about' })
+}
 </script>
 
 <template>
@@ -37,7 +41,7 @@ function handleLogout() {
         <text class="menu-text">清除缓存</text>
         <text class="i-carbon-chevron-right arrow" />
       </view>
-      <view class="menu-item" @click="uni.navigateTo({ url: '/pages/user/about' })">
+      <view class="menu-item" @click="goToAbout">
         <text class="menu-text">关于校趣闪搭</text>
         <text class="i-carbon-chevron-right arrow" />
       </view>

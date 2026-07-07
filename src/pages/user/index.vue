@@ -50,6 +50,14 @@ function handleLogout() {
 function switchSchool() {
   uni.navigateTo({ url: '/pages-core/login/select-school' })
 }
+
+function goToOrders(type: 'buy' | 'sell') {
+  uni.navigateTo({ url: `/pages/order/list?type=${type}` })
+}
+
+function goToFavorites() {
+  uni.navigateTo({ url: '/pages/product/favorites' })
+}
 </script>
 
 <template>
@@ -97,17 +105,17 @@ function switchSchool() {
       <view class="menu-section">
         <text class="section-title">交易管理</text>
         <view class="menu-list">
-          <view class="menu-item" @click="uni.navigateTo({ url: '/pages/order/list?type=buy' })">
-            <text class="i-carbon-baggage menu-icon" />
+          <view class="menu-item" @click="goToOrders('buy')">
+            <text class="i-carbon-shopping-bag menu-icon" />
             <text class="menu-text">我买到的</text>
             <text class="i-carbon-chevron-right arrow" />
           </view>
-          <view class="menu-item" @click="uni.navigateTo({ url: '/pages/order/list?type=sell' })">
-            <text class="i-carbon-baggage menu-icon" />
+          <view class="menu-item" @click="goToOrders('sell')">
+            <text class="i-carbon-shopping-bag menu-icon" />
             <text class="menu-text">我卖出的</text>
             <text class="i-carbon-chevron-right arrow" />
           </view>
-          <view class="menu-item" @click="uni.navigateTo({ url: '/pages/product/favorites' })">
+          <view class="menu-item" @click="goToFavorites">
             <text class="i-carbon-favorite menu-icon" />
             <text class="menu-text">我的收藏</text>
             <text class="i-carbon-chevron-right arrow" />

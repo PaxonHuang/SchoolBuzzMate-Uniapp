@@ -7,12 +7,16 @@ type _LocationUrl =
   "/pages/index/index" |
   "/pages/index/search" |
   "/pages/message/index" |
+  "/pages/order/detail" |
+  "/pages/order/list" |
   "/pages/product/detail" |
+  "/pages/product/favorites" |
   "/pages/publish/index" |
   "/pages/user/index" |
   "/pages/user/profile" |
   "/pages/user/settings" |
   "/pages/user/verify" |
+  "/pages/order/comment/index" |
   "/pages-core/login/index" |
   "/pages-core/login/select-school";
 

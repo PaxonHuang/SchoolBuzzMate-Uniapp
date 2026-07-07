@@ -49,7 +49,31 @@
     },
     // #ifdef MP-WEIXIN
     {
+      "path": "pages/order/detail",
+      "type": "page"
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
+      "path": "pages/order/list",
+      "type": "page"
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
       "path": "pages/product/detail",
+      "type": "page"
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
+      "path": "pages/product/favorites",
+      "type": "page"
+    },
+    // #endif
+    // #ifdef MP-WEIXIN
+    {
+      "path": "pages/order/comment/index",
       "type": "page"
     }
     // #endif

@@ -49,6 +49,10 @@ function handleTagClick(tag: string) {
   keyword.value = tag
   handleSearch()
 }
+
+function handleCancel() {
+  uni.navigateBack()
+}
 </script>
 
 <template>
@@ -66,7 +70,7 @@ function handleTagClick(tag: string) {
         />
         <text v-if="keyword" class="i-carbon-close clear-btn" @click="clearSearch" />
       </view>
-      <text class="cancel-text" @click="uni.navigateBack()">取消</text>
+      <text class="cancel-text" @click="handleCancel">取消</text>
     </view>
 
     <!-- 搜索结果 -->

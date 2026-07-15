@@ -130,3 +130,21 @@ const schoolUserId = suRes.data?.[0]?._id || null
 - 不要把原始聊天全文导入仓库。
 - 不要复述或保存任何 token、PAT、API key、支付密钥。
 - 如果后续任务确实需要凭证, 让用户通过安全方式重新确认, 或检查本机环境变量/平台后台配置。
+
+## 问题 15: Windows→WSL2 迁移 — LF/CRLF 与跨边界工具链
+
+**背景**: 开发环境迁到 WSL2 后,微信开发者工具 + HBuilderX 仍是 Windows 程序,进不了 WSL2 → 混合工作流。
+
+**踩坑与正解**:
+1. **LF/CRLF 报错** ("diff contains a change in line endings from LF to CRLF"):
+   - 根因: 无 `.gitattributes`,各工具保存行尾不一致。
+   - 正解: 加 `.gitattributes`(`* text=auto eol=lf`,`*.ps1/*.bat/*.cmd text eol=crlf`,`*.sh text eol=lf`)+ `.editorconfig`;新机 `git config core.autocrlf false`,以 `.gitattributes` 为唯一事实来源。
+   - 诊断用 `git ls-files --eol`(权威),不要用 `file`(会误报)。本仓库实际大部分已是 LF(`core.autocrlf=input`),只有个别 CRLF。
+2. **`.husky/` 无需手改**: 未被 git 跟踪,`pnpm install` 的 `prepare: husky` 会在 Linux 侧重新生成正确 LF。
+3. **微信工具跨边界打开产物**: 导入 `\\wsl.localhost\Ubuntu\home\<用户>\...\dist\dev\mp-weixin`;`.wslconfig` 开 `networkingMode=mirrored` 让 localhost/dev server 互通。
+4. **部署脚本跨边界**: 用 `scripts/*.sh`(WSL2),通过互操作调 Windows CLI,路径经 `wslpath -w` 翻译;CLI 路径用 `$WX_CLI`/`$HBUILDERX_CLI` 环境变量覆盖(`.ps1` 已同步改为 `$env:` 间接)。
+5. **代理**: 在 WSL2 内跑 ShellCrash(Linux 侧),`git config --global http.proxy` + `HTTP(S)_PROXY` 指向本地端口;mirrored 模式下 localhost 通用。
+6. **PowerShell UTF-8 破坏问题(问题1/7)在 Linux 下不复现**: WSL2 里改中文文件用普通编辑/`sed` 即可,不再受 PowerShell 代码页坑。
+7. **迁移方式**: 优先 `git clone`(或 `git bundle`)干净检出,不要 `cp` 整个含 node_modules 的目录;`pnpm install` 在 native fs 重建,不再需要问题3 的手动 symlink workaround。
+
+**安全提醒(迁移审计时发现)**: `IDkeys.txt` 被 git 跟踪且未 gitignore(疑似含密钥);`manifest.config.ts` 有明文 `clientSecret`。迁移前应审查、移出跟踪并按需轮换。

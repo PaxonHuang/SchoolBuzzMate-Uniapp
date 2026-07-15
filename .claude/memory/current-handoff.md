@@ -1,7 +1,25 @@
 # Claude Code 当前交接
 
-最后整理: 2026-07-05  
+最后整理: 2026-07-15(WSL2 迁移准备)
 来源: Codex 历史会话索引、当前项目文件、`CHANGELOG.md`、`.claude/memory/` 现有记忆。
+
+## 🐧 WSL2 迁移状态(2026-07-15 进行中)
+
+正在把开发环境从 Windows(`E:\...\SchoolBuzzUniAPP`)迁到 WSL2 Ubuntu 24.04(`~/SchoolBuzzProjects/SchoolBuzzUniAPP`)。**混合工作流**: 代码/编译/git 在 WSL2,微信开发者工具+HBuilderX 留 Windows。
+
+**已在 Windows 侧完成(非破坏性,待 commit):**
+- 加 `.gitattributes` + `.editorconfig`(统一 LF,`.ps1/.bat/.cmd` 保留 CRLF)—— 解决 LF↔CRLF 报错
+- 加 `scripts/{dev,deploy-cloud,e2e-check}.sh`(WSL2 跨边界包装器,`wslpath -w` 翻译)
+- `.ps1` CLI 路径改 `$env:WX_CLI`/`$env:HBUILDERX_CLI` 间接
+- `package.json` 加 `dev:sh`/`deploy:cloud:sh`/`e2e:check:sh` 别名
+- 文档: `docs/WSL2-MIGRATION.md`(执行手册)、`CLAUDE.md` 加 WSL2 混合工作流节、`known-issues.md` 问题15、技能 `.claude/skills/wsl2-hybrid-workflow/`
+
+**待用户决策(暂停中,勿擅自执行):**
+- 提交 65 个 Java 课程设计删除(`assets/img/java-source/**` 等,已在磁盘删除未 commit)
+- 退役 `CLAUDE-CODE-PROMPTS.md`(30KB)、清 `.remember/logs` 旧日志
+- ⚠️ 安全: `IDkeys.txt` 被 git 跟踪且未 gitignore(疑似密钥);`manifest.config.ts` 明文 `clientSecret`
+
+**下一步(用户在 WSL2 侧执行)**: 按 `docs/WSL2-MIGRATION.md` 阶段 A→E。原 Windows 目录验证通过前不删。
 
 ## 打开项目后先做
 
@@ -12,7 +30,7 @@
 
 ## 项目定位
 
-项目根目录: `E:\NJTS-Codeprojects-2023\WechatMiniproject\SchoolBuzzUniAPP`
+项目根目录: Windows `E:\NJTS-Codeprojects-2023\WechatMiniproject\SchoolBuzzUniAPP`;迁移目标 WSL2 `~/SchoolBuzzProjects/SchoolBuzzUniAPP`
 
 SchoolBuzzMate 是 UniApp + Vue3 + TypeScript + UniCloud 阿里云的校园二手交易/社交平台。当前主目标平台是微信小程序。MVP 后端走 UniCloud, 后续通过 `src/api/*.ts` 抽象层切 Spring Boot/Spring Cloud。
 

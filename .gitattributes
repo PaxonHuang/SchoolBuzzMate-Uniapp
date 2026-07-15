@@ -1,0 +1,42 @@
+# ============================================================
+# SchoolBuzzMate 行尾规范 (Windows <-> WSL2 兼容)
+# 目的: 消除 "diff contains a change in line endings from LF to CRLF" 警告
+# 单一事实来源: 以本文件为准, 各端 core.autocrlf 建议设为 false
+# ============================================================
+
+# 默认: 自动检测文本, 所有文本文件统一 LF
+* text=auto eol=lf
+
+# --- Windows-only 脚本: 保留 CRLF (在 Windows PowerShell/cmd 下运行) ---
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# --- Shell 脚本 / git hooks: 强制 LF (否则 Linux 下 sh -e 失效) ---
+*.sh text eol=lf
+
+# --- 常见二进制: 显式标记, 避免被当文本 renormalize ---
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.bmp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.class binary
+
+# --- 生成/锁文件: 统一 LF, 减少跨平台 diff 噪音 ---
+pnpm-lock.yaml -diff linguist-generated

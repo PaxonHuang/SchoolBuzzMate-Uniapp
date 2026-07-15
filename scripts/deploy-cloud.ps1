@@ -18,8 +18,8 @@ $CloudRoot = Join-Path $ProjectRoot "uniCloud-aliyun"
 $FunctionsRoot = Join-Path $CloudRoot "cloudfunctions"
 $SchemaRoot = Join-Path $CloudRoot "database"
 
-# HBuilderX CLI 路径 (按本机安装位置调整)
-$HBUILDERX_CLI = "E:\HbuilderX\HBuilderX\cli.exe"
+# HBuilderX CLI 路径 (优先环境变量 HBUILDERX_CLI, 再回退默认安装位置)
+$HBUILDERX_CLI = if ($env:HBUILDERX_CLI) { $env:HBUILDERX_CLI } else { "E:\HbuilderX\HBuilderX\cli.exe" }
 if (-not (Test-Path $HBUILDERX_CLI)) {
     # 尝试默认安装位置
     $HBUILDERX_CLI = "${env:ProgramFiles}\HBuilderX\HBuilderX\cli.exe"

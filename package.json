@@ -29,6 +29,10 @@
     "deploy:cloud:order": "powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1 -Functions order-co,favorites-co",
     "e2e:check": "powershell -ExecutionPolicy Bypass -File scripts/e2e-check.ps1",
     "e2e:full": "powershell -ExecutionPolicy Bypass -File scripts/e2e-check.ps1 -TestFlow",
+    "dev:sh": "bash scripts/dev.sh mp-weixin",
+    "deploy:cloud:sh": "bash scripts/deploy-cloud.sh",
+    "e2e:check:sh": "bash scripts/e2e-check.sh",
+    "e2e:full:sh": "bash scripts/e2e-check.sh --test-flow",
     "prepare": "husky"
   },
   "dependencies": {

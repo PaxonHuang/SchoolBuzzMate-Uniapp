@@ -5,7 +5,7 @@ param(
 )
 
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
-$WX_CLI = "E:\Tencent微信web开发者工具\微信web开发者工具\cli.bat"
+$WX_CLI = if ($env:WX_CLI) { $env:WX_CLI } else { "E:\Tencent微信web开发者工具\微信web开发者工具\cli.bat" }
 $WX_DEV_PROJECT = "$ProjectRoot\dist\dev\mp-weixin"
 
 Write-Host "========================================" -ForegroundColor Cyan

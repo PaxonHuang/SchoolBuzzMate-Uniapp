@@ -54,6 +54,17 @@ pnpm run dev:h5           # H5 调试
 .\scripts\dev.ps1 -Platform mp-weixin   # mp-weixin | h5 | both
 ```
 
+### 🐧 WSL2 混合工作流（代码在 WSL2，微信工具在 Windows）
+
+```bash
+pnpm run dev:sh            # WSL2 编译监听 + 尝试打开 Windows 微信开发者工具
+pnpm run deploy:cloud:sh   # 经互操作调 Windows HBuilderX CLI 上传云函数
+```
+
+- 微信开发者工具导入：`\\wsl.localhost\Ubuntu\home\<用户>\SchoolBuzzProjects\SchoolBuzzUniAPP\dist\dev\mp-weixin`
+- 完整迁移/使用步骤见 [`docs/WSL2-MIGRATION.md`](docs/WSL2-MIGRATION.md)
+- 行尾由根目录 `.gitattributes` 统一（文本 LF，`.ps1/.bat/.cmd` 保留 CRLF），跨平台无 LF↔CRLF 报错
+
 ### ⚠️ 不要使用 HBuilderX
 
 HBuilderX 在 Windows + Node.js v22 下存在 ESM loader 兼容 bug（`Received protocol 'e:'`）。本项目以 CLI 为唯一开发方式。

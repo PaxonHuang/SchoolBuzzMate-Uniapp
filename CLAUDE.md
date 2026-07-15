@@ -35,11 +35,16 @@ pnpm run type-check
 pnpm run lint
 pnpm run lint:fix
 
-# 一键启动开发环境（Windows）
+# 一键启动开发环境（Windows PowerShell）
 .\scripts\dev.ps1 -Platform mp-weixin
+
+# 一键启动开发环境（WSL2 / bash）
+pnpm run dev:sh          # = bash scripts/dev.sh mp-weixin
 ```
 
 模式变体：`:test` / `:prod` 后缀切换环境（读取 `env/.env.{mode}`）。
+
+> **行尾**: 仓库根有 `.gitattributes` 统一行尾——文本一律 LF，`.ps1/.bat/.cmd` 保留 CRLF。跨 Windows/WSL2 不会再报 "diff contains a change in line endings from LF to CRLF"。新机检出后 `git config core.autocrlf false`，让 `.gitattributes` 作唯一事实来源。
 
 ## ⚠️ 必须在 Windows + Node v22 下用 CLI，不要用 HBuilderX
 
@@ -53,6 +58,22 @@ Received protocol 'e:'
 1. 终端运行 `pnpm run dev:mp-weixin` 启动编译监听
 2. 打开微信开发者工具，导入 `dist/dev/mp-weixin` 目录
 3. 修改代码后自动差量编译，微信开发者工具自动刷新
+
+## 🐧 WSL2 混合工作流（代码在 WSL2，微信/HBuilderX 在 Windows）
+
+若开发环境已迁到 WSL2（Ubuntu 24.04，如 `~/SchoolBuzzProjects/SchoolBuzzUniAPP`）：
+
+- **编译/依赖/git 全在 WSL2 原生跑**（`pnpm install` / `pnpm run dev:mp-weixin` / `pnpm type-check`）——native ext4 更快，且绕开 HBuilderX+Node ESM bug。
+- **微信开发者工具 + HBuilderX 是 Windows 程序，留在 Windows**：
+  - 微信开发者工具导入 `\\wsl.localhost\Ubuntu\home\<用户>\SchoolBuzzProjects\SchoolBuzzUniAPP\dist\dev\mp-weixin`
+  - 建议 `%UserProfile%\.wslconfig` 开 `networkingMode=mirrored`，让 localhost / dev server(`0.0.0.0:9420`) 跨边界互通。
+- **部署脚本跨边界**：WSL2 里用 `.sh` 版本（`pnpm run deploy:cloud:sh` / `e2e:check:sh`），它通过 WSL 互操作调 Windows CLI，路径经 `wslpath -w` 翻译。CLI 路径用环境变量覆盖：
+  ```bash
+  export WX_CLI="/mnt/e/Tencent微信web开发者工具/微信web开发者工具/cli.bat"
+  export HBUILDERX_CLI="/mnt/e/HbuilderX/HBuilderX/cli.exe"
+  ```
+- 完整迁移步骤见 `docs/WSL2-MIGRATION.md`；可复用流程见技能 `.claude/skills/wsl2-hybrid-workflow/`。
+- **HBuilderX 仅承担云空间关联 / 上传云函数**；编译永远走 pnpm CLI。
 
 ## 微信小程序 / 云服务配置
 

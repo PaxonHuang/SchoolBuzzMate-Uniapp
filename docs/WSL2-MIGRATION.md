@@ -36,23 +36,24 @@ node -v && pnpm -v
 ```
 (可选)想在 WSL2 直接跑 `.ps1`: `sudo apt install -y powershell` 后用 `pwsh`;否则用 `.sh` 版本即可。
 
-## 阶段 C — GitHub / 代理(ShellCrash on WSL2)
+## 阶段 C — GitHub / 代理(复用 Windows Clash Verge,方案 A)
 
-```bash
-# 安装 ShellCrash (官方: https://github.com/juewuy/ShellCrash)
-# 一键脚本(直连或已有代理时):
-export url='https://raw.githubusercontent.com/juewuy/ShellCrash/master' && \
-  sh -c "$(curl -kfsSl $url/install.sh)" && . /etc/profile &>/dev/null
-# 启动 crash 面板导入订阅、选内核、启动服务(按其菜单操作)
-```
-让 git/pnpm/curl 走代理(端口以 ShellCrash 实际监听为准,mirrored 模式下 localhost 通用):
-```bash
-git config --global http.proxy  http://127.0.0.1:7890
-git config --global https.proxy http://127.0.0.1:7890
-export HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890
-# 验证
-curl -I https://github.com
-```
+前提:Windows 已在跑 **Clash Verge**,且开启「**系统代理**」;WSL 网络模式 = **mirrored**。
+
+1. WSL Settings「网络」页把「**已启用自动代理**」设为 **开** → 应用更改 → `wsl --shutdown`。
+   - 此后 WSL 自动继承 Windows 的 HTTP 代理,git/pnpm/curl 一般无需再配。
+2. 验证:
+   ```bash
+   env | grep -i proxy          # 应能看到 http_proxy 已被注入
+   curl -I https://github.com   # 通即可
+   ```
+3. 若某些 CLI 没吃到代理(mirrored 下 localhost 与 Windows 共享),手动指到 Clash 的 mixed 端口(按 Verge 实际端口,常见 7890):
+   ```bash
+   git config --global http.proxy  http://127.0.0.1:7890
+   git config --global https.proxy http://127.0.0.1:7890
+   export HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890
+   ```
+> 备选(方案 B,不推荐并存):WSL2 内自装 ShellCrash 做独立 Linux 代理;此时「自动代理」保持关,且 mirrored 下用端口/mixed 代理而非 TUN(TUN 与 mirrored 易冲突)。
 > ⚠️ 不把订阅链接 / token / PAT / 支付密钥写进仓库。
 
 ## 阶段 D — 迁移代码

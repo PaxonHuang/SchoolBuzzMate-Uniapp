@@ -27,7 +27,7 @@ description: Use when developing SchoolBuzzMate (UniApp/微信小程序) with co
    ```
 3. **行尾**: 以根目录 `.gitattributes` 为唯一事实来源(文本 LF,`.ps1/.bat/.cmd` CRLF)。新机 `git config core.autocrlf false`。诊断行尾用 `git ls-files --eol`,不要用 `file`。
 4. **mirrored networking**: `%UserProfile%\.wslconfig` 里 `[wsl2]\nnetworkingMode=mirrored`,让 localhost/dev server(`0.0.0.0:9420`)跨边界互通;改后 `wsl --shutdown`。
-5. **代理**: WSL2 内跑 ShellCrash,`git config --global http.proxy http://127.0.0.1:<port>` + `HTTP(S)_PROXY`。不把订阅/token 写进仓库。
+5. **代理(方案 A)**: 复用 Windows Clash Verge —— WSL Settings 开「自动代理」+ Clash 开系统代理,WSL 自动继承;必要时 `git config --global http.proxy http://127.0.0.1:<mixed端口>`。不把订阅/token 写进仓库。
 6. **HBuilderX 只做云空间关联/上传云函数**;编译永远走 pnpm CLI(且绕开 HBuilderX+Node ESM bug)。
 
 ## 双脚本对应关系

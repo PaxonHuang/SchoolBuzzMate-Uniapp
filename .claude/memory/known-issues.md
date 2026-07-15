@@ -143,7 +143,7 @@ const schoolUserId = suRes.data?.[0]?._id || null
 2. **`.husky/` 无需手改**: 未被 git 跟踪,`pnpm install` 的 `prepare: husky` 会在 Linux 侧重新生成正确 LF。
 3. **微信工具跨边界打开产物**: 导入 `\\wsl.localhost\Ubuntu\home\<用户>\...\dist\dev\mp-weixin`;`.wslconfig` 开 `networkingMode=mirrored` 让 localhost/dev server 互通。
 4. **部署脚本跨边界**: 用 `scripts/*.sh`(WSL2),通过互操作调 Windows CLI,路径经 `wslpath -w` 翻译;CLI 路径用 `$WX_CLI`/`$HBUILDERX_CLI` 环境变量覆盖(`.ps1` 已同步改为 `$env:` 间接)。
-5. **代理**: 在 WSL2 内跑 ShellCrash(Linux 侧),`git config --global http.proxy` + `HTTP(S)_PROXY` 指向本地端口;mirrored 模式下 localhost 通用。
+5. **代理(方案 A,复用 Windows Clash)**: WSL Settings「网络」开「自动代理」+ Clash Verge 开系统代理 + 网络模式 mirrored → WSL 自动继承 Windows 代理;必要时手动 `git config --global http.proxy http://127.0.0.1:<mixed端口>`。(备选方案 B: WSL2 内自装 ShellCrash,mirrored 下用端口代理而非 TUN。)
 6. **PowerShell UTF-8 破坏问题(问题1/7)在 Linux 下不复现**: WSL2 里改中文文件用普通编辑/`sed` 即可,不再受 PowerShell 代码页坑。
 7. **迁移方式**: 优先 `git clone`(或 `git bundle`)干净检出,不要 `cp` 整个含 node_modules 的目录;`pnpm install` 在 native fs 重建,不再需要问题3 的手动 symlink workaround。
 

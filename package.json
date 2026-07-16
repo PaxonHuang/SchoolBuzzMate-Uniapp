@@ -31,7 +31,9 @@
     "e2e:full": "powershell -ExecutionPolicy Bypass -File scripts/e2e-check.ps1 -TestFlow",
     "dev:sh": "bash scripts/dev.sh mp-weixin",
     "deploy:cloud:sh": "bash scripts/deploy-cloud.sh",
+    "deploy:cloud:sh:dry": "bash scripts/deploy-cloud.sh --dry-run",
     "e2e:check:sh": "bash scripts/e2e-check.sh",
+    "e2e:check:sh:nodep": "bash scripts/e2e-check.sh --no-deploy",
     "e2e:full:sh": "bash scripts/e2e-check.sh --test-flow",
     "prepare": "husky"
   },

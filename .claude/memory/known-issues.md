@@ -148,3 +148,23 @@ const schoolUserId = suRes.data?.[0]?._id || null
 7. **迁移方式**: 优先 `git clone`(或 `git bundle`)干净检出,不要 `cp` 整个含 node_modules 的目录;`pnpm install` 在 native fs 重建,不再需要问题3 的手动 symlink workaround。
 
 **安全提醒(迁移审计时发现)**: `IDkeys.txt` 被 git 跟踪且未 gitignore(疑似含密钥);`manifest.config.ts` 有明文 `clientSecret`。迁移前应审查、移出跟踪并按需轮换。
+
+## 问题 16: HBuilderX CLI 真实命令语法(2026-07-17 实测)
+
+**症状**: 旧 `scripts/deploy-cloud.{ps1,sh}` 用 `cli upload --project <path> --type cloudfunction --path <path>` 调上传 — 这是**错的语法**,实际命令是子命令形式 `cli cloud functions --upload X --prj <项目名> --provider aliyun --name <资源名>`,且 `cli.exe` **必须在 HBuilderX GUI 已打开状态下**才能正常调用(否则返回 `未检测到已打开的HBuilderX`)。
+
+**坑点 (db schema)**: `--name` 对 db 类型**必须带 `.schema.json` 后缀**(cloudfunction / common 不用后缀),否则报错 `schema 文件名必须以 '.schema.json' 结尾`。
+
+**坑点 (WSL2 bash)**:
+- `while IFS= read -r s; do ... done < <(find ...)` 形式在 `set -uo pipefail` 下,经过一个会消费 stdout 的 HBuilderX CLI 调用后,read 会**立即 EOF** 只跑 1 次就退出。改用 `mapfile -t ARR < <(find ...)` 先捕到数组,再 `for s in "${ARR[@]}"; do ...; done` 即可。
+- `pnpm run <script> -- <args>` 会把 `--` 当字面参数传给脚本,导致 `bash scripts/deploy-cloud.sh -- --dry-run` 报 `未知参数: --`。要么**直接用 `bash scripts/deploy-cloud.sh --dry-run`**,要么为 `pnpm` 写无 `--` 的别名脚本(如 `deploy:cloud:sh:dry`)。
+
+**实测可用的命令 (2026-07-17 已跑通 6 云函数 + 2 公共模块 + 7 schema)**:
+```bash
+# 项目名 = SchoolBuzzUniApp (HBuilderX 内部, 用 cli project list 查)
+# 服务空间 = mp-c3e590c7-e8f1-4877-95c5-346ba36e296c
+"/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --upload cloudfunction --prj SchoolBuzzUniApp --provider aliyun --name order-co
+"/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --upload common        --prj SchoolBuzzUniApp --provider aliyun --name uni-pay
+"/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --upload db             --prj SchoolBuzzUniApp --provider aliyun --name comments.schema.json
+"/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --list cloudfunction --prj SchoolBuzzUniApp --provider aliyun --cloud
+```

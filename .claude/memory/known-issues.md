@@ -168,3 +168,20 @@ const schoolUserId = suRes.data?.[0]?._id || null
 "/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --upload db             --prj SchoolBuzzUniApp --provider aliyun --name comments.schema.json
 "/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --list cloudfunction --prj SchoolBuzzUniApp --provider aliyun --cloud
 ```
+
+## 问题 17: WSL2 下 `git push` 偶发 `Connection reset by peer` (2026-07-17)
+
+**症状**: `git push origin <branch>` 报 `fatal: unable to access 'https://github.com/...': Recv failure: Connection reset by peer`, 但 `curl -I https://github.com` 正常 (HTTP/1.1 200 Connection established)。`git push --dry-run` 也正常,显示所有待 push 的 commit。
+
+**根因**: WSL2 NAT 模式 + Clash Verge 混合端口代理下, git 默认走 **HTTP/2** 多路复用, 经过 SOCKS/HTTP 代理时被中途 reset; curl 默认 HTTP/1.1 不受影响。
+
+**正解**:
+```bash
+# 临时一次: 强制 HTTP/1.1
+git -c http.version=HTTP/1.1 push origin <branch>
+
+# 永久: 全局配置 (推荐, 避免每次写 -c)
+git config --global http.version HTTP/1.1
+```
+
+**注意**: HTTP/1.1 比 HTTP/2 略慢 (无多路复用), 但对 git push 这种低频操作完全够用, 反而更稳。如果后续换到 mirrored 网络模式或换代理工具, 可以再切回 HTTP/2 (`git config --global --unset http.version`)。

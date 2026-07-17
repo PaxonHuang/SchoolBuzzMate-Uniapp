@@ -198,18 +198,23 @@ exports.main = async (event, context) => {
 - 不要用 HBuilderX (Windows + Node v22 下有 ESM bug); 用 `pnpm` CLI + 微信开发者工具
 - 云函数永远走软删除 (`status=0`), 不直接 `db.collection().remove()`
 
-## 最近一次工作 (M3 增量, 2026-07-03 ~ 07-05)
+## 最近一次工作 (WSL2 迁移 + M3 部署收尾, 2026-07-15 ~ 07-17)
 
-最近 commit (从 main HEAD 倒序):
-- `101aefc` docs(claude): 迁移记忆到 .claude/memory/ 主题文件 + 更新 CLAUDE.md 入口
-- `1d6fcb1` docs: 添加 CHANGELOG.md 记录 M3 全流程
-- `13f849c` chore(e2e): 添加端到端冒烟测试脚本 + npm script
-- `08eadfe` feat(comment): 评价系统 (comment-co + 评价页 + 商品页评价列表)
-- `d5d677e` feat(order): 接入 uni-pay 微信支付 + 订单超时清理 + 信用分自动调整
-- `89f213f` chore(deploy): 添加 UniCloud 一键部署脚本 + npm script
-- `43e1dc2` fix(types+product+order): 修复 type-check 错误
-- `086a4bd` feat(order+product): M3 交易核心 + M2 收尾补全
+最近 commit (从 HEAD 倒序, 本次新增):
+- `709bd45` docs(claude): 记录 WSL2 M3 部署收尾 + HBuilderX CLI 真实语法
+- `dc94046` fix(deploy): 用正确 HBuilderX CLI 语法重写 deploy-cloud.{ps1,sh}
+- `19333a0` docs(wsl2): 代理改为方案A(复用 Windows Clash + 自动代理)
+- `e04094d` chore(wsl2): 迁移准备 — 行尾规范 + 跨边界脚本 + 文档/技能
+- `097e71d` chore(security): IDkeys.txt 移出版跟踪 + clientSecret 支持环境注入
 
-**重要**: 不要回滚这些 commit; 它们是 M3 主线实现状态, 但真机验证和云端部署仍按 `current-handoff.md` 继续。
+**M3 部署已闭环 (2026-07-17)**:
+- ✅ WSL2 Ubuntu 24.04 + Node v22.23.1 + pnpm 10.10.0
+- ✅ `pnpm type-check` 0 错误, `pnpm run build:mp-weixin` 成功 (828K)
+- ✅ 6 云函数 + 2 公共模块 + 7 schema **全部上传到 mp-c3e590c7-...** 服务空间
+- ✅ 修复 deploy-cloud 脚本的 3 个 bug (语法错/EOF 早返回/`--` 传递)
+- ⏳ **真机闭环待跑**: 发布→下单→支付→发货→确认→评价 (需用户在微信开发者工具导入 `dist/build/mp-weixin`)
+- 📋 **M4 待开始**: 微信支付商户号 + 隐私协议 + 审核材料
 
-**当前真实状态提示**: 最近一次 Codex 迁移审计时, worktree 已不是干净状态: `src/pages/product/detail.vue` 有未提交修改, `.claude/settings.local.json` 和若干 `_tmp_*` 文件未跟踪。本文件和 `.claude/memory/` 也可能有新的迁移文档未提交。继续前先跑 `git status --short` 并阅读 `.claude/memory/current-handoff.md`。
+**重要**: 不要回滚 M3 之前的 commit; 它们是 M3 主线实现状态。
+
+**当前真实状态提示**: worktree 已干净 (2026-07-17 验证)。继续前先跑 `git status --short` 并阅读 `.claude/memory/current-handoff.md` 和 `known-issues.md#16` (HBuilderX CLI 真实语法)。

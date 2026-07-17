@@ -1,5 +1,18 @@
 # Changelog
 
+## M3 部署收尾 (2026-07-17) ✅
+
+WSL2 环境下完整闭环 M3 云端部署:
+
+- **WSL2 验证**: `pnpm install` + `pnpm type-check` (0 错误) + `pnpm run build:mp-weixin` (828K, AppID postbuild 修复)
+- **修复 deploy-cloud.{ps1,sh}**: 旧脚本用错的 CLI 语法 (`cli upload --project --type --path`), 改为正确子命令形式 `cli cloud functions --upload X --prj <项目> --provider aliyun --name <资源>`, 顺手修 3 个 bash 坑 (process substitution EOF 早返回 / db name 必带 `.schema.json` 后缀 / pnpm `--` 传递)
+- **完整部署到 mp-c3e590c7-...**:
+  - 6 个云函数: user-co / school-co / product-co / order-co / favorites-co / comment-co
+  - 2 个公共模块: uni-pay / uni-config-center
+  - 7 个 schema: schools / school_users / products / orders / product_likes / favorites / comments
+- **文档同步**: `../SchoolBuzzDocs/PROGRESS.md` 标 M3 ✅, 新增 `known-issues.md#16`
+- **package.json**: 新增 `deploy:cloud:sh:dry` / `e2e:check:sh:nodep` 别名 (绕开 `--` 传递)
+
 ## M3 - 交易核心 (2026-07-03 ~ 2026-07-05) ✅
 
 ### Step 1: 修复 type-check 错误 (commit 43e1dc2)

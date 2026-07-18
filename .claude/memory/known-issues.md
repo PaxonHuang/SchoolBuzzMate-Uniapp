@@ -169,6 +169,92 @@ const schoolUserId = suRes.data?.[0]?._id || null
 "/mnt/e/HbuilderX/HBuilderX/cli.exe" cloud functions --list cloudfunction --prj SchoolBuzzUniApp --provider aliyun --cloud
 ```
 
+## 问题 18: Windows PowerShell 跑 `npm.cmd run <script>` 在 WSL2 UNC 路径下报 `ENOENT package.json` (2026-07-18)
+
+**症状**: 在 PowerShell 里跑
+```powershell
+cd \\wsl.localhost\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp
+npm.cmd run deploy:cloud
+```
+报:
+```
+'\\wsl.localhost\Ubuntu-24.04\...' 用作为当前目录的以上路径启动了 CMD.EXE。
+UNC 路径不受支持。默认值设为 Windows 目录。
+npm error code ENOENT
+npm error path C:\Windows\package.json
+```
+
+**根因**:
+1. `npm.cmd` 是 Windows 程序 → PowerShell 调它时会先 fork 出 CMD.EXE。
+2. CMD.EXE **不支持 UNC 路径**作为 cwd → 自动 fallback 到 `C:\Windows`。
+3. CMD.EXE 在 `C:\Windows` 里跑 `npm run` → 找不到 `package.json` → ENOENT。
+4. 即使显式 `cd \\wsl.localhost\...`,CMD.EXE 仍然拒绝接收 UNC cwd。
+
+**正解** (按环境二选一):
+```powershell
+# 方案 A: 直接用 WSL 互操作 (推荐, Windows PowerShell)
+bash scripts/deploy-cloud.sh              # WSL 自动把 cwd 翻译回 /home/SchoolBuzzProjects/SchoolBuzzMate-Uniapp
+
+# 方案 B: 进入 WSL bash 后用 pnpm sh 版本
+wsl
+cd /home/SchoolBuzzProjects/SchoolBuzzMate-Uniapp
+pnpm run deploy:cloud:sh                 # = bash scripts/deploy-cloud.sh
+pnpm run deploy:cloud:sh:dry             # 只校验, 不实际上传
+```
+
+**绝对不要**:
+- ❌ `npm.cmd run <script>` (走 CMD.EXE → UNC fail)
+- ❌ `pnpm run deploy:cloud` (虽然 pnpm 能在 PowerShell 里解析 UNC, 但内部会调 `powershell -ExecutionPolicy Bypass -File scripts/deploy-cloud.ps1`, 在某些 Windows 版本上 .ps1 也可能在 UNC 下受限)
+- ❌ 从 WSL 路径里的 cmd.exe / PowerShell 调任何 npm 子命令
+
+**快速验证是否踩坑**: 看 PowerShell 提示行有没有出现 `UNC 路径不受支持`。出现就立刻换 WSL 互操作。
+
+## 问题 19: CLI 编译产物里没有 uniCloud.init 参数, 微信开发者工具弹 "uni-app cli项目内使用uniCloud需要使用HBuilderX的运行菜单运行项目,且需要在uniCloud目录关联服务空间" (2026-07-18)
+
+**症状**: `pnpm run dev:mp-weixin` / `pnpm run build:mp-weixin` 编译产物在微信开发者工具模拟器里跑时, console 弹出:
+```
+uni-app cli项目内使用uniCloud需要使用HBuilderX的运行菜单运行项目,
+且需要在uniCloud目录关联服务空间
+```
+所有 `uniCloud.callFunction` / `uniCloud.uploadFile` 调用返回 rejected Promise, 云函数调用 **直接失败**。
+
+**根因** (从编译产物 `dist/build/mp-weixin/common/vendor.js` 反推确认):
+1. 警告字符串来自 `@dcloudio/uni-cloud/dist/uni-cloud-x.es.js`, 触发分支逻辑:
+   ```js
+   if (e && 1 === e.length) {
+     t = e[0]; er = er.init(t); er._isDefault = !0;  // 正常
+   } else {
+     // e 为空 (没注 init 参数) → 走警告分支
+     s = ... || "uni-app cli项目内使用uniCloud需要使用HBuilderX的运行菜单...";
+     // 所有 uniCloud.* 方法都 return console.error(s) + reject
+   }
+   ```
+2. `e` (init 参数) 是 **HBuilderX GUI 在"运行 → 运行到小程序模拟器"时硬编码注入到 vendor.js** 的。CLI 编译 (`uni build -p mp-weixin` / `uni -p mp-weixin`) **不读** `manifest.json` 里的 `uniCloud` 块, **也不读** `.dev.assign.json`, 所以注入是空的。
+3. 验证证据: `dist/build/mp-weixin/app.js` 里没有 `uniCloud.init(...)`, `vendor.js` 里也没有, 但警告字符串 `关联服务空间` **在 vendor.js 里** → 走的就是警告分支。
+
+**正解** (按用途选):
+
+| 用途 | 推荐做法 | 原因 |
+|------|----------|------|
+| **本地 dev 预览** (微信开发者工具模拟器跑流程) | **必须**走 HBuilderX GUI: 打开 HBuilderX → 导入 `\\wsl.localhost\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp` → 右键 `uniCloud-aliyun` → **关联云服务空间** → 选 `mp-c3e590c7-...` → "运行 → 运行到小程序模拟器 → 微信开发者工具" | HBuilderX 关联后会写 `uniCloud-aliyun/.dev.assign.json` + 在 vendor.js 里注入 init 参数, 警告消失 |
+| **CLI dev/preview** (`pnpm run dev:mp-weixin` 给微信开发者工具导入) | ⚠️ 警告会出现, 云函数调用会 reject。**只适合跑前端 UI 改样**, 不能跑 M3 真机闭环 | CLI 路径不注入 init 参数, 这不是 bug 是设计 |
+| **生产构建** (`pnpm run build:mp-weixin` → 上传微信后台审核) | ✅ CLI 构建产物足够。审核版走微信后台的云开发配置, 不依赖 vendor.js 里的 init 参数 | 这是设计: 审核版运行时由微信 IDE 自己注入云空间上下文 |
+
+**WSL2 混合场景下的实际操作流程**:
+1. **第一次**: 在 Windows 打开 HBuilderX → "文件 → 导入 → 从本地目录导入" → 选 `\\wsl.localhost\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp`。
+2. HBuilderX 顶部菜单 "运行" → "运行到小程序模拟器" → "微信开发者工具" → 在弹出 HBuilderX 里点 "确定关联云服务空间" → 选 `mp-c3e590c7-e8f1-4877-95c5-346ba36e296c`。
+3. HBuilderX 此时会写 `uniCloud-aliyun/.dev.assign.json` (Windows 端写到 `\\wsl.localhost\...` 镜像路径) → 之后 HBuilderX 内部的 vendor.js 注入 init 参数 → 警告消失。
+4. **之后**: CLI 编译 (`pnpm run dev:mp-weixin`) 给微信开发者工具导入 dist 仍有警告 (CLI 不读 `.dev.assign.json`); 但 HBuilderX GUI 的"运行"菜单则不会。
+
+**绝对不要**:
+- ❌ 自己手写 `uniCloud-aliyun/.dev.assign.json` — HBuilderX 关联会覆盖; 且 CLI 不读它, 写了也无效
+- ❌ 在 `main.ts` 里写 `uniCloud.init({provider, spaceId})` 试图绕过 — 会被 `@dcloudio/uni-cloud` 拦截 (它会先判 `e._isDefault`)
+- ❌ 假设警告只是 dev 噪音 — 真机闭环时 `uniCloud.callFunction` 会直接 reject, 排查起来非常坑
+
+**关键事实**:
+- `manifest.json` 里的 `uniCloud.{provider,spaceId,clientSecret}` 字段 (本仓 76-80 行) 是 **HBuilderX GUI 关联时读的**, 不是 CLI 编译时读的。
+- M3 真机闭环必须在 HBuilderX GUI 编译产物里跑 (用 HBuilderX "运行 → 微信开发者工具" 触发编译 + 注入 init 参数)。CLI 构建产物只能用于上传审核。
+
 ## 问题 17: WSL2 下 `git push` 偶发 `Connection reset by peer` (2026-07-17)
 
 **症状**: `git push origin <branch>` 报 `fatal: unable to access 'https://github.com/...': Recv failure: Connection reset by peer`, 但 `curl -I https://github.com` 正常 (HTTP/1.1 200 Connection established)。`git push --dry-run` 也正常,显示所有待 push 的 commit。
@@ -185,3 +271,16 @@ git config --global http.version HTTP/1.1
 ```
 
 **注意**: HTTP/1.1 比 HTTP/2 略慢 (无多路复用), 但对 git push 这种低频操作完全够用, 反而更稳。如果后续换到 mirrored 网络模式或换代理工具, 可以再切回 HTTP/2 (`git config --global --unset http.version`)。
+
+## 问题 20: WSL2 跨边界场景的"运行方式 → 编译产物 → 云函数是否可用"对应表 (2026-07-18)
+
+实际踩坑后总结的对应关系 (出问题查这张表):
+
+| 用户想做的事 | 用什么编译/运行 | 产物路径 | uniCloud.init 是否注入 | 真机闭环能用? |
+|---|---|---|---|---|
+| 改前端 UI 看效果 | `pnpm run dev:mp-weixin` + 微信开发者工具导入 `dist/dev/mp-weixin` | `\\wsl$\Ubuntu-24.04\home\...\dist\dev\mp-weixin` | ❌ 警告会弹, 云函数 reject | ❌ |
+| **M3 真机闭环验证** (发布→下单→支付→...) | **HBuilderX GUI "运行 → 运行到小程序模拟器 → 微信开发者工具"** | HBuilderX 自管临时目录 | ✅ | ✅ |
+| 提交审核 (`pnpm run build:mp-weixin`) | CLI 编译 + 微信开发者工具"上传" | `dist/build/mp-weixin` | ⚠️ CLI 注入缺失, 但审核版运行时由微信 IDE 注 | ✅ (审核) / ❌ (本地预览) |
+| 部署云函数 | `bash scripts/deploy-cloud.sh` (WSL2) 或 `bash scripts/deploy-cloud.sh` (Windows 互操作) | 不涉及前端产物 | n/a | n/a |
+
+**关键认知**: "前端编译工具链"和"运行时 uniCloud 上下文注入"是 **两套独立机制**, CLI 只管前者, HBuilderX 同时管两者。M3 验证只能用后者。

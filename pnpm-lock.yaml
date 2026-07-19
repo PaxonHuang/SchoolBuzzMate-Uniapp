@@ -60,9 +60,15 @@ importers:
       '@dcloudio/vite-plugin-uni':
         specifier: 3.0.0-4070620250821001
         version: 3.0.0-4070620250821001(postcss@8.5.15)(rollup@4.61.1)(vite@5.2.8(@types/node@20.19.42)(sass@1.77.8)(terser@5.48.0))(vue@3.5.35(typescript@5.8.3))
+      '@esbuild/win32-x64':
+        specifier: 0.20.2
+        version: 0.20.2
       '@iconify-json/carbon':
         specifier: ^1.2.4
         version: 1.2.23
+      '@rollup/rollup-win32-x64-msvc':
+        specifier: 4.61.1
+        version: 4.61.1
       '@types/node':
         specifier: ^20.17.9
         version: 20.19.42
@@ -3284,7 +3290,7 @@ packages:
   git-raw-commits@4.0.0:
     resolution: {integrity: sha512-ICsMM1Wk8xSGMowkOmPrzo2Fgmfo4bMHLNX6ytHjajRJUqvHOw/TFapQ+QG75c3X/tTDDhOSRPGC52dDbNM8FQ==}
     engines: {node: '>=16'}
-    deprecated: This package is no longer maintained. For the JavaScript API, please use @conventional-changelog/git-client instead.
+    deprecated: Deprecated and no longer maintained. Use @conventional-changelog/git-client instead.
     hasBin: true
 
   github-slugger@2.0.0:
@@ -6909,8 +6915,7 @@ snapshots:
   '@esbuild/win32-ia32@0.20.2':
     optional: true
 
-  '@esbuild/win32-x64@0.20.2':
-    optional: true
+  '@esbuild/win32-x64@0.20.2': {}
 
   '@eslint-community/eslint-plugin-eslint-comments@4.7.2(eslint@9.39.4(jiti@2.7.0))':
     dependencies:
@@ -7628,8 +7633,7 @@ snapshots:
   '@rollup/rollup-win32-x64-gnu@4.61.1':
     optional: true
 
-  '@rollup/rollup-win32-x64-msvc@4.61.1':
-    optional: true
+  '@rollup/rollup-win32-x64-msvc@4.61.1': {}
 
   '@sinonjs/commons@1.8.6':
     dependencies:

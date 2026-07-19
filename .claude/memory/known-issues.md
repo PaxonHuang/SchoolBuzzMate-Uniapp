@@ -272,7 +272,73 @@ git config --global http.version HTTP/1.1
 
 **注意**: HTTP/1.1 比 HTTP/2 略慢 (无多路复用), 但对 git push 这种低频操作完全够用, 反而更稳。如果后续换到 mirrored 网络模式或换代理工具, 可以再切回 HTTP/2 (`git config --global --unset http.version`)。
 
-## 问题 21: HBuilderX 编译报 "node_modules缺少编译器模块" — pnpm symlink 布局的锅 (2026-07-19)
+## 问题 26: HBuilderX 在 WSL2 项目上编译报 "Cannot find module @rollup/rollup-win32-x64-msvc" (2026-07-19)
+
+**症状**: `node-linker=hoisted` (#21) 解决"缺编译器模块"后, HBuilderX 又报:
+```
+Error: Cannot find module @rollup/rollup-win32-x64-msvc.
+npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828).
+Please try `npm i` again after removing both package-lock.json and node_modules directory.
+    at requireWithFriendlyError (\\wsl$\...\node_modules\rollup\dist\native.js:121:9)
+```
+同样错误也可能来自 `@esbuild/win32-x64`(vite 内部用 esbuild 做 transform)。
+
+**根因**:
+- `rollup@4.x` 声明 24 个 `optionalDependencies`(@rollup/rollup-{platform}-{arch})
+- `esbuild@0.20.x` 声明 22 个 `optionalDependencies`(@esbuild/{platform}-{arch})
+- pnpm 在 WSL2 (Linux x64) 装时只挑匹配当前平台的 binary(rollup-linux-x64-gnu + rollup-linux-x64-musl / @esbuild/linux-x64)
+- HBuilderX 在 Windows x64 跑 vite 时, `process.platform==='win32'` → rollup/esbuild 尝试 require 各自 Windows native binary → 找不到 → 报错
+- 这是 pnpm "platform-aware optionalDependencies" 的设计, 但 WSL2 跨边界场景下 Windows 端拿不到 Windows binary
+
+**正解**: 显式把 Windows binary 提到顶层 devDependencies(强制 pnpm 装跨平台包):
+```bash
+# 必须严格匹配版本 (跟 rollup/esbuild 主包一致)
+pnpm add -D @rollup/rollup-win32-x64-msvc@4.61.1
+pnpm add -D @esbuild/win32-x64@0.20.2
+```
+装完后:
+- ✅ `node_modules/@rollup/rollup-win32-x64-msvc/rollup.win32-x64-msvc.node` (PE32+ DLL)
+- ✅ `node_modules/@esbuild/win32-x64/esbuild.exe` (PE32+ exe)
+- ✅ HBuilderX 在 Windows 跑 vite 能加载对应 binary
+
+**何时还需要补**:
+- 升级 rollup / esbuild 后, 必须同步更新这两个 dep 的版本号
+- 跨 ARM (Apple Silicon / Windows ARM) 场景还要加 `@rollup/rollup-win32-arm64-msvc` 等
+- 未来如果加 `@swc/core` / `@oxc-parser` 这类带 native 的包, 同样要补 Windows 版本
+
+**注意事项**:
+- 这两个 dep 只在 Windows 端的 HBuilderX 编译时被用到, **不影响** Linux 侧 CLI 编译(`pnpm run build:mp-weixin` 仍走 Linux binary)
+- WSL2 侧的 npm install 装上 Windows .node 文件纯属"占位"(WSL2 加载不了 PE32+ DLL), 这没关系 — HBuilderX 走 Windows Node 加载才会用上
+- 千万别再回退到 `npm install` 想"修复"optional deps 缺失 — 撞 #22 的 arborist bug
+
+## 问题 27: HBuilderX `uniCloud本地调试服务启动失败 EISDIR watch .hbuilderx\launch.json` (2026-07-19)
+
+**症状**: HBuilderX 编译报:
+```
+uniCloud本地调试服务启动失败:EISDIR:
+illegal operation on a directory, watch '\'
+\wsl.localhost\Ubuntu-24.04\home
+\SchoolBuzzProjects\SchoolBuzzMate-
+Uniapp\.hbuilderx\launch.json'。
+```
+同时云函数 `uniCloud-aliyun/` 一直显示 loading。
+
+**根因**:
+- HBuilderX 走 `\\wsl$\Ubuntu-24.04\home\...\uniCloud-aliyun` 9P 边界访问 WSL2 文件, 把路径里的 `\` 当成路径分隔符 → 路径被错切, 最后试图 watch 一个被解析成目录的 `launch.json`
+- 路径里的换行符也证实 HBuilderX 的字符串拼接把 `\n` 当成 `\`, 走 9P 时炸了
+- 同时 `uniCloud-aliyun/.dev.assign.json` 没生成 → HBuilderX 关联云空间从未成功, 一直转圈
+
+**正解**(三步):
+1. **删 `.hbuilderx/launch.json`**: 这个文件是 HBuilderX 自己生成的本地配置(.gitignore 已忽略), 删除后 HBuilderX 下次启动会重新写一份走正确路径的版本
+2. **排查 HBuilderX 网络 (关键, 不解决就一直 loading)**:
+   - 确认 `%UserProfile%\.wslconfig` 有 `[wsl2] networkingMode=mirrored`, 然后 `wsl --shutdown` 重启
+   - 确认 Windows 侧 Clash 系统代理开着 (HBuilderX 访问 api.bspapp.com 走系统代理)
+   - 重启 HBuilderX
+3. **重新关联**: 右键 `uniCloud-aliyun` → 关联云服务空间 → `mp-c3e590c7-...` → 这次应该正常完成, `.dev.assign.json` 会被写入
+
+**绝对不要**:
+- ❌ 手写 `.hbuilderx/launch.json` — HBuilderX 启动时根据 `\\wsl$\...` 路径重新生成, 手写会被覆盖
+- ❌ 用 Windows PowerShell 直接删 `.dev.assign.json` 后硬重写 — HBuilderX 关联后会自动覆盖, 自己写的版本可能 schema 不对
 
 **症状**: 在 HBuilderX 里 "运行 → 运行到小程序模拟器 → 微信开发者工具" 报:
 ```

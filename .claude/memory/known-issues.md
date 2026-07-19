@@ -272,7 +272,127 @@ git config --global http.version HTTP/1.1
 
 **注意**: HTTP/1.1 比 HTTP/2 略慢 (无多路复用), 但对 git push 这种低频操作完全够用, 反而更稳。如果后续换到 mirrored 网络模式或换代理工具, 可以再切回 HTTP/2 (`git config --global --unset http.version`)。
 
-## 问题 20: WSL2 跨边界场景的"运行方式 → 编译产物 → 云函数是否可用"对应表 (2026-07-18)
+## 问题 21: HBuilderX 编译报 "node_modules缺少编译器模块" — pnpm symlink 布局的锅 (2026-07-19)
+
+**症状**: 在 HBuilderX 里 "运行 → 运行到小程序模拟器 → 微信开发者工具" 报:
+```
+项目 SchoolBuzzMate-Uniapp 开始编译
+node_modules缺少编译器模块，请执行npm install后重试
+项目 SchoolBuzzMate-Uniapp 编译失败
+```
+但 WSL2 里 `pnpm install` 已经成功, `node_modules/@dcloudio/*` 看上去都在。
+
+**根因**:
+- pnpm 默认用 symlink 布局: `node_modules/@dcloudio/uni-app` → `.pnpm/@dcloudio+uni-app@.../node_modules/@dcloudio/uni-app`
+- HBuilderX 编译时读 `node_modules/@dcloudio/uni-app/lib/...` 用 Node-style require/resolve, 跨 WSL2 9P 文件系统(`\\wsl$\...`)对 symlink 的 follow 在某些 stat + require 组合下超时或失败 → 报"缺少编译器模块"。
+- 即使 `node_modules/.bin/vite` 是 pnpm 创建的 symlink, 也能找到, 但 HBuilderX 的额外 stat/检查过不去。
+
+**正解**: 加 `.npmrc` 切 pnpm 到 hoisted 模式(真实目录, 不再 symlink):
+```ini
+# /home/SchoolBuzzProjects/SchoolBuzzMate-Uniapp/.npmrc
+node-linker=hoisted
+```
+然后:
+```bash
+pnpm install   # 重装, symlink 全部变成真实目录
+```
+**效果**:
+- ✅ HBuilderX 看到 npm 风格扁平布局, "缺少编译器模块"消失
+- ✅ 微信开发者工具导入 dist 正常
+- ⚠️ node_modules 体积 3-5x (每个包独立副本), 本项目约 828K 编译产物可接受
+- ✅ CLI 编译性能几乎不变
+
+**绝对不要**:
+- ❌ 在 pnpm 项目里跑 `npm install` 试图"修复" — 见 #22
+- ❌ 手写 symlink 把 `.pnpm/` 实体挂到顶层 — `pnpm install` 重装就失效
+- ❌ 用 `shamefully-hoist=true` (老兼容方案, 不如 `node-linker=hoisted` 干净)
+
+## 问题 22: pnpm 项目里跑 `npm install` 报 `Cannot read properties of null (reading 'matches')` (2026-07-19)
+
+**症状**: WSL2 项目根跑 `npm install` 报:
+```
+npm error Cannot read properties of null (reading 'matches')
+A complete log of this run in: /root/.npm/_logs/2026-07-19T06_34_28_417Z-debug-0.log
+```
+
+**根因**(从 stack 锁定):
+```
+TypeError: Cannot read properties of null (reading 'matches')
+  at Link.matches (.../npm/.../@npmcli/arborist/lib/node.js:1137:41)
+  at Link.canDedupe (.../arborist/lib/node.js:1091:15)
+  at PlaceDep.pruneDedupable (.../arborist/lib/place-dep.js:426:14)
+  at new PlaceDep (...)
+  at #buildDepStep (.../arborist/lib/arborist/build-ideal-tree.js:920:18)
+  at async Arborist.buildIdealTree (...)
+```
+npm 10 的 `@npmcli/arborist` 在 `BuildIdealTree` 时走 `node_modules/` 做 dedupe, 但 pnpm 已经创建了 `.pnpm/` symlink 树, arborist 解析 symlink 时撞到 null(Link.matches 拿不到预期对象)。
+
+**重要事实**:
+- `preinstall: "npx only-allow pnpm"` 没拦住是 npm 10.x 放宽了 preinstall 行为(早期 npm 版本会拒绝, 10.x 有时不拦)。
+- 即使去掉 `packageManager` 字段, arborist 仍会读 `.pnpm/` 撞同样错 — 跟 packageManager 字段无关。
+
+**正解**: **永远不要在 pnpm 项目里跑 `npm install`**。
+- 若需要 npm 风格布局给 HBuilderX 用 → 加 `.npmrc` 的 `node-linker=hoisted` 重新 `pnpm install`(#21)
+- 若只是临时想装一个包 → `pnpm add <pkg>`, 不是 `npm install <pkg>`
+- 若不小心跑了 npm install 且撞了 → `pnpm install` 一次恢复即可, 不需要 `rm -rf node_modules`
+
+**绝对不要**: `npm install --force` / `npm install --legacy-peer-deps` — 都是同一个 arborist bug, 会撞一样错。
+
+## 问题 23: HBuilderX "关联云服务空间" 卡 loading 不返回 (2026-07-19)
+
+**症状**: Windows HBuilderX → 右键 `uniCloud-aliyun` → "关联云服务空间或项目" → 选 `mp-c3e590c7-...` → 转圈 loading 不消失。
+
+**最可能的 3 个根因**(按概率排):
+
+1. **HBuilderX 进程没走 Clash 系统代理**: HBuilderX 是 Windows GUI, 访问 `api.bspapp.com` 时如果没拿到 Windows 系统代理(Clash 7890), 会 timeout → loading 不消失。
+2. **WSL2 没开 mirrored 模式**: 即使 Windows 侧 Clash 开着, 如果 `%UserProfile%\.wslconfig` 没设 `networkingMode=mirrored`, WSL2 侧拿到的代理配置也传不回 Windows 进程(HBuilderX)。
+3. **HBuilderX 内部状态卡死**: 之前 `npm install` 在项目根跑过留下了 `.npm/_cacache` 临时锁或 HBuilderX 自己维护的 `.dev.assign.json` 损坏。
+
+**正解**(按顺序排查):
+
+```powershell
+# 1) 确认 .wslconfig 开了 mirrored
+notepad $env:USERPROFILE\.wslconfig
+# 内容应该是:
+# [wsl2]
+# networkingMode=mirrored
+# swap=0
+# ...其他按需
+
+# 2) 重启 WSL 让配置生效
+wsl --shutdown
+wsl
+
+# 3) 在 PowerShell 验证 bspapp 可达
+curl -I https://api.bspapp.com
+# 应该返回 200/301, 不应该超时
+
+# 4) 如果上面 OK, 关掉 HBuilderX 重新打开再关联
+#    (关之前先备份可能损坏的 .dev.assign.json)
+#    rm \\wsl$\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\uniCloud-aliyun\.dev.assign.json
+```
+
+**绝对不要**:
+- ❌ 在 HBuilderX 设置里改代理到 localhost:7890 — 这是 WS2 内部地址, Windows 进程访问不到(除非 mirrored)
+- ❌ 关掉 Clash 切直连 — 公司网络可能拦截 bspapp
+
+## 问题 24: HBuilderX `settings.json` 里 node/npm 路径不要配 WSL2 路径 (2026-07-19)
+
+**常见误配置**:
+```json
+{
+  "node.exe.path": "/opt/nvm/versions/node/v22.23.1/bin/node",      // ❌ WSL2 路径
+  "npm.cmd.path": "/opt/nvm/versions/node/v22.23.1/lib/node_modules/npm/bin/npm-cli.js"  // ❌ WSL2 路径
+}
+```
+
+**正解**:
+- HBuilderX 是 **Windows GUI**, 用 `\\wsl$\Ubuntu\opt\nvm\...` 路径在 9P 驱动上不可靠。
+- HBuilderX 的 **uni-app 编译走的是它自带的 Node runtime**(`HBuilderX/plugins/node/`), **完全不读** settings.json 里的 node/npm 路径。
+- settings.json 里的 node/npm 路径**只对 "运行外部 JS 文件" 功能生效**(右键 → 运行), 本项目用不上。
+- 推荐配置: 保持 `E:/nvm/v22.18.0/node.exe` 和 `E:/nvm/v22.18.0/npm.cmd`(Windows 本地 nvm)。
+
+**核心理念**: **CLI 编译用 WSL2 自带 Node v22.23.1**; **HBuilderX GUI 用自带 Node**。两边互不依赖, 不要硬打通。
 
 实际踩坑后总结的对应关系 (出问题查这张表):
 
@@ -284,3 +404,26 @@ git config --global http.version HTTP/1.1
 | 部署云函数 | `bash scripts/deploy-cloud.sh` (WSL2) 或 `bash scripts/deploy-cloud.sh` (Windows 互操作) | 不涉及前端产物 | n/a | n/a |
 
 **关键认知**: "前端编译工具链"和"运行时 uniCloud 上下文注入"是 **两套独立机制**, CLI 只管前者, HBuilderX 同时管两者。M3 验证只能用后者。
+
+## 问题 25: M3 真机闭环标准流程(整合 #19-#24, 2026-07-19 修订)
+
+按以下顺序执行可走通 HBuilderX + WSL2 + 微信开发者工具全链路:
+
+**一次性环境准备**:
+1. 确认 `%UserProfile%\.wslconfig` 有 `[wsl2] networkingMode=mirrored`, 然后 `wsl --shutdown` 重启。
+2. WSL2 项目根加 `.npmrc`:
+   ```ini
+   node-linker=hoisted
+   ```
+3. `pnpm install`(让 node_modules 变真实目录, 不再 symlink, 给 HBuilderX 看)。
+
+**每次开发循环**:
+1. WSL2: `pnpm run dev:mp-weixin` 起监听(可选, 只在改前端时需要)。
+2. Windows HBuilderX: 打开项目 → 右键 `uniCloud-aliyun` → 关联云服务空间(若已关联则跳过)。
+3. Windows HBuilderX: 顶部菜单 运行 → 运行到小程序模拟器 → 微信开发者工具。
+4. 微信开发者工具: 弹出后会自动 reload, 走 M3 真机闭环流程。
+
+**部署云函数**(独立环节, 用 WSL2 脚本):
+```bash
+bash scripts/deploy-cloud.sh         # 或 pnpm run deploy:cloud:sh
+```

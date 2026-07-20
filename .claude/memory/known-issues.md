@@ -471,25 +471,138 @@ curl -I https://api.bspapp.com
 
 **关键认知**: "前端编译工具链"和"运行时 uniCloud 上下文注入"是 **两套独立机制**, CLI 只管前者, HBuilderX 同时管两者。M3 验证只能用后者。
 
-## 问题 25: M3 真机闭环标准流程(整合 #19-#24, 2026-07-19 修订)
+## 问题 28: HBuilderX "运行到小程序模拟器" 在 WSL2 项目上 EISDIR/watch 全面失败 — Windows fs.watch + 9P UNC 的根本限制 (2026-07-20)
 
-按以下顺序执行可走通 HBuilderX + WSL2 + 微信开发者工具全链路:
+**症状**: HBuilderX "运行 → 运行到小程序模拟器 → 微信开发者工具" 启动时报:
+```
+uniCloud本地调试服务启动失败:EISDIR:
+illegal operation on a directory, watch '\'
+\wsl.localhost\Ubuntu-24.04\home
+\SchoolBuzzProjects\SchoolBuzzMate-
+Uniapp\.hbuilderx\launch.json'
+
+# + node:internal/fs/watchers:254 EISDIR '//wsl.localhost/Ubuntu-24.04/home/SchoolBuzzProjects/SchoolBuzzMate-Uniapp/src'
+# + chokidar/lib/nodefs-handler.js:119
+```
+
+**根因**:
+- HBuilderX 用 **Windows 自带 Node.js v22.18.0**(栈里 `node v22.18.0`), 不是 WSL2 内的 Node
+- HBuilderX 在 Windows 上跑编译, 用 chokidar 做文件监听
+- chokidar 在 Windows 走 `fs.watch()` → `ReadDirectoryChangesW`
+- `ReadDirectoryChangesW` 对 `\\wsl$\Ubuntu\...` UNC 路径(9P 驱动的 WSL2 文件)不稳定:
+  - 部分路径被解析成目录(EISDIR)
+  - 部分路径 watch 返回但事件丢失
+- 这是 **Windows 内核层 FS API 对 9P 的限制**, 跟项目配置 / pnpm / npm 都无关
+
+**用户的工作流限制**:
+- 用 `networkingMode=mirrored` 会让 Claude Code 联网 (socket) 报错失败, 所以只能用 NAT 模式
+- NAT 模式 + 没 mirrored → HBuilderX Windows 进程对 WSL2 文件的访问更脆弱
+- `.wslconfig` 里加 `[experimental] hostAddressLoopback=true` 也没替代 mirrored
+
+**正解** (推荐 — **完全放弃 HBuilderX "运行" 功能**, 改用纯 WSL2 CLI 流程):
+
+1. **WSL2 内 CLI 编译 + 后处理**:
+   ```bash
+   pnpm run build:mp-weixin   # 已链上 inject-unicloud-init.mjs, 自动注入 init 参数
+   # 或 dev 模式:
+   pnpm run dev:mp-weixin &   # 后台跑, vite HMR
+   node scripts/inject-unicloud-init.mjs dist/dev/mp-weixin   # 一次性注入 (重 build 后再跑)
+   ```
+
+2. **微信开发者工具 自动监听**:
+   - 微信开发者工具导入项目 → `\\wsl.localhost\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\dist\build\mp-weixin`(或 dev)
+   - 微信开发者工具的 watcher (用 WeChat IDE 内置的 MiniProgram watcher) 比 chokidar + Windows fs.watch 对 UNC 路径更鲁棒
+   - 它能正确监听 `\\wsl$\...` 路径下的文件变更并触发 IDE 自动刷新
+
+3. **HBuilderX 只用于 "上传云函数" 这一件事** (用 `bash scripts/deploy-cloud.sh` 替代, 见 #16)
+
+**为什么这样可行**:
+- ✅ CLI 编译产物 (vendor.js) 已通过 `inject-unicloud-init.mjs` 注入 `Aa = [{provider, spaceId, clientSecret}]`, 运行时走 `nd.init(t)` 而非警告分支 → 云函数可用
+- ✅ 微信开发者工具的 watcher 不依赖 chokidar + Windows ReadDirectoryChangesW, 用自家 Watchdog 机制
+- ✅ WSL2 内 pnpm/npm/node 全在 Linux 原生 fs, 速度比 Windows 快 5-10x
+
+**为什么 HBuilderX "关联云空间" 在 NAT 模式下可能仍卡 loading**:
+- HBuilderX "关联云服务空间" 走 `api.bspapp.com` 验证登录态
+- NAT 模式下, Windows 进程通过 WSL2 出口访问 bspapp.com, 中间代理链长, 容易超时
+- 解法: 重启 HBuilderX 时**确保 Windows 侧 Clash 系统代理开着** + 不需要用 HBuilderX 这个功能 (我们的 inject 脚本已经替代它)
+
+**绝对不要**:
+- ❌ 在 WSL2 项目上硬跑 HBuilderX "运行" / "发行" — 必撞 EISDIR/watch, 这是已知 Windows 9P 限制
+- ❌ 用 PowerShell `New-Item -ItemType HardLink` 把项目复制一份到 Windows 原生 fs 来给 HBuilderX — 同步混乱, 比上面方案差
+- ❌ 调 HBuilderX settings 把 node 路径改成 WSL2 的 nvm 路径 — HBuilderX 进程是 Windows 的, 走 WSL2 互操作也不稳
+
+## 问题 29: vendor.js 注入 uniCloud.init 的实现细节 (`scripts/inject-unicloud-init.mjs`, 2026-07-20)
+
+**实现原理**:
+- 编译产物 `dist/{build,dev}/mp-weixin/common/vendor.js` 里有 IIFE:
+  ```js
+  (()=>{
+    const e=Aa;  // Aa 是 webpack 重命名后的 compile-time 变量
+    let t={};
+    if(e && 1===e.length) t=e[0], nd=nd.init(t), nd._isDefault=!0;
+    else {
+      // 警告 + 把 nd.* (uniCloud.*) 全换成 reject Promise 的 stub
+    }
+  })()
+  ```
+- CLI 编译时 `Aa` 是 undefined (HBuilderX GUI 会注入 pre-baked 配置, 见 #19)
+- 注入脚本在 IIFE 前插入:
+  ```js
+  /* SchoolBuzzMate uniCloud.init injection */
+  var Aa=[{provider:"aliyun",spaceId:"...",clientSecret:"..."}];
+  ```
+- 这样 IIFE 看到 `e.length===1`, 走 `nd.init(t)` 正确分支, `nd._isDefault=true`
+
+**用法**:
+```bash
+# 默认 build 产物
+pnpm run build:mp-weixin   # 已自动链上 inject
+
+# dev 模式手动跑一次
+pnpm run dev:mp-weixin &
+sleep 12 && node scripts/inject-unicloud-init.mjs dist/dev/mp-weixin
+```
+
+**配置来源优先级**:
+1. 环境变量 `UNICLOUD_PROVIDER` / `UNICLOUD_SPACE_ID` / `UNICLOUD_CLIENT_SECRET`(推荐, 不写到 manifest.json 避免泄露)
+2. `src/manifest.json` 的 `uniCloud` 块(回退)
+
+**已知边界**:
+- 注入位置是 `vendor.js` 文件里 `(()=>{const e=Aa;` 这个特征串的第一个匹配位置
+- 如果 uni-app 新版把 `Aa` 重命名, 脚本会报 "找不到 IIFE 标记" — 此时要更新 MARKER 字符串
+- 幂等: 有 `/* SchoolBuzzMate uniCloud.init injection */` 哨兵字符串, 重跑不重复注入
+- clientSecret 是敏感凭证, 强烈建议从 env 走; 如果用 manifest.json 兜底, 应该轮换 clientSecret 见 CHANGELOG.md 097e71d
+
+## 问题 25: M3 真机闭环标准流程(整合 #19-#28, 2026-07-20 修订 — 不再用 HBuilderX "运行")
+
+按以下顺序执行可走通 WSL2 + 微信开发者工具全链路, **不再依赖 HBuilderX GUI**:
 
 **一次性环境准备**:
-1. 确认 `%UserProfile%\.wslconfig` 有 `[wsl2] networkingMode=mirrored`, 然后 `wsl --shutdown` 重启。
-2. WSL2 项目根加 `.npmrc`:
+1. WSL2 项目根加 `.npmrc`:
    ```ini
    node-linker=hoisted
    ```
-3. `pnpm install`(让 node_modules 变真实目录, 不再 symlink, 给 HBuilderX 看)。
+2. `pnpm install`(让 node_modules 变真实目录)
+3. `pnpm add -D @rollup/rollup-win32-x64-msvc@4.61.1 @esbuild/win32-x64@0.20.2`(给 Windows 端兼容备用, 即使不用 HBuilderX 跑也建议装着 — 防止有人重启 HBuilderX "运行")
 
 **每次开发循环**:
-1. WSL2: `pnpm run dev:mp-weixin` 起监听(可选, 只在改前端时需要)。
-2. Windows HBuilderX: 打开项目 → 右键 `uniCloud-aliyun` → 关联云服务空间(若已关联则跳过)。
-3. Windows HBuilderX: 顶部菜单 运行 → 运行到小程序模拟器 → 微信开发者工具。
-4. 微信开发者工具: 弹出后会自动 reload, 走 M3 真机闭环流程。
+1. WSL2 终端: `pnpm run dev:mp-weixin`(起监听, vite HMR)
+2. 另开 WSL2 终端: `node scripts/inject-unicloud-init.mjs dist/dev/mp-weixin`(一次性注入 init, 重 build 后再跑)
+3. Windows 侧打开 **微信开发者工具** → 导入项目 → `\\wsl.localhost\Ubuntu-24.04\home\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\dist\dev\mp-weixin`
+4. 微信开发者工具里走 M3 真机闭环流程: 发布→下单→支付→发货→确认收货→评价
+5. 改代码: WSL2 终端自动 rebuild → 微信开发者工具自动 reload
 
-**部署云函数**(独立环节, 用 WSL2 脚本):
+**生产构建 + 审核**:
+```bash
+pnpm run build:mp-weixin       # 已链 inject, 产物无需手动跑
+```
+然后微信开发者工具导入 `dist/build/mp-weixin` → 上传。
+
+**部署云函数**(独立环节):
 ```bash
 bash scripts/deploy-cloud.sh         # 或 pnpm run deploy:cloud:sh
 ```
+
+**HBuilderX 现在的角色**:
+- 仅作为 IDE 编辑器用 (语法高亮、代码补全) — 也可以用 VSCode / Cursor 替代
+- **绝对不要**用 HBuilderX "运行" / "发行" 功能 — 见 #28

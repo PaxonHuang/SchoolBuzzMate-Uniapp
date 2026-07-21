@@ -606,3 +606,54 @@ bash scripts/deploy-cloud.sh         # 或 pnpm run deploy:cloud:sh
 **HBuilderX 现在的角色**:
 - 仅作为 IDE 编辑器用 (语法高亮、代码补全) — 也可以用 VSCode / Cursor 替代
 - **绝对不要**用 HBuilderX "运行" / "发行" 功能 — 见 #28
+
+## 问题 30: vite HMR 反复覆盖 vendor.js, 手动注入失效 — 长效守护进程方案 (2026-07-21)
+
+**症状**:
+- `pnpm run build:mp-weixin` 链 `inject-unicloud-init.mjs` 自动注入成功 (单次 build 无 HMR)
+- 但 `pnpm run dev:mp-weixin` 启 vite dev server 后, **用户改 src 文件 → vite HMR 重建 vendor.js → 之前的注入被覆盖 → 微信开发者工具重新报 "uni-app cli项目内使用uniCloud..." 警告**
+
+**根因**:
+- vite HMR 走 `@dcloudio/vite-plugin-uni` 自己的 emit pipeline, **不走** vite 标准 module graph
+- vite plugin 的 `transform` hook 对源码 module 起效, **不拦截** uni-app 编译后 emit 的 vendor.js
+- `renderChunk` / `writeBundle` / `closeBundle` 也只在 build mode (一次性编译) 触发, dev HMR 不走这些钩子
+- 所以无论怎么写 vite plugin 都无法在 dev HMR 路径上自动注入
+
+**正解**(独立守护进程 — 已验证可行):
+
+### 方案 A: `scripts/unicloud-init-watcher.mjs` (推荐)
+- 用 `node:fs.watch` + 800ms polling 双保险
+  - fs.watch 在 atomic write (write tmp + rename) 时会漏事件
+  - polling 兜底: 每 800ms stat 一次 vendor.js, size/mtime 变化则触发注入
+- 任一信号触发 → 调用 `inject-unicloud-init.mjs <relDir>` 重新注入
+- 注入脚本本身幂等(哨兵字符串 + size/mtime 缓存), 放心反复触发
+
+**用法**:
+```bash
+# 终端 1 (后台守护, 一次启, 一直跑)
+pnpm run watch:unicloud
+
+# 终端 2 (正常 dev)
+pnpm run dev:mp-weixin
+```
+守护进程会自动检测 `dist/{build,dev}/mp-weixin/common/vendor.js` 的创建/修改, 跑 `inject-unicloud-init.mjs` 重新注入。每次 vite HMR rebuild 后 0.5-1 秒内自动补注入, 微信开发者工具永远不会看到未注入的 vendor.js。
+
+**已验证场景**:
+- ✅ `dist/dev` 不存在 → 守护进程启动时 poll, 文件出现后立即注入
+- ✅ vite 首次 build → polling 检测到 size 变化 → 注入 → vendor.js 大小变化 → 再次注入(防 lastSize 误判, 第二次会因哨兵命中跳过)
+- ✅ HMR rebuild → fs.watch fire → 立即注入
+
+### 方案 B: vite plugin `vite-plugin-unicloud-init.js` (兜底, 对 dev 无效)
+- 已在 `vite.config.ts` 注册
+- `transform` hook 仅拦截源码 module, 不拦截 uni-app 编译后的 vendor.js
+- 对 dev 模式无效, 但保留无害, 未来 uni-app 改变 emit 流程后可能起作用
+
+**已知坑**(修过的):
+- ❌ 第一版 watcher 的 regex `(dist\/(?:build|dev)\/mp-weixin)` 把 `/common` 截断了 → 注入路径少了一段 → existsSync 永远 false → polling 看起来没工作
+- ✅ 修: regex 提取仅用于日志展示, 实际路径用 `resolve(d, 'vendor.js')` 拼装 (d 是完整目录路径)
+
+**清单**:
+- 新增 `scripts/unicloud-init-watcher.mjs`(守护进程主体)
+- 新增 `vite-plugin-unicloud-init.js` + `.d.ts`(兜底)
+- 更新 `vite.config.ts`(注册 plugin)
+- 更新 `package.json` 加 `watch:unicloud` 脚本

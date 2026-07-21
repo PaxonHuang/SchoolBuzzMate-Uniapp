@@ -22,6 +22,7 @@
     "build:h5:prod": "cross-env NODE_OPTIONS=--no-experimental-strip-types uni build --mode production",
     "build:mp-weixin": "cross-env NODE_OPTIONS=--no-experimental-strip-types uni build -p mp-weixin && node scripts/fix-mp-weixin-appid.mjs && node scripts/inject-unicloud-init.mjs",
     "build:mp-weixin:prod": "cross-env NODE_OPTIONS=--no-experimental-strip-types uni build -p mp-weixin --mode production && node scripts/fix-mp-weixin-appid.mjs && node scripts/inject-unicloud-init.mjs dist/build/mp-weixin",
+    "watch:unicloud": "node scripts/unicloud-init-watcher.mjs",
     "type-check": "vue-tsc --noEmit",
     "lint": "eslint",
     "lint:fix": "eslint --fix",

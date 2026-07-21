@@ -2,17 +2,31 @@
 /**
  * SchoolBuzzMate uniCloud.init 注入脚本 (WSL2 CLI 后处理)
  *
- * 背景: pnpm run dev:mp-weixin / build:mp-weixin 的产物 vendor.js 里有一段 IIFE:
+ * 背景: pnpm run dev:mp-weixin / build:mp-weixin 的产物 vendor.js 里有一段 IIFE。
+ * 不同 build mode 下 webpack minification 出的代码形态不同:
+ *
+ *   # build 模式 (production):
  *   (()=>{const e=Aa;let t={};if(e&&1===e.length) t=e[0],nd=nd.init(t),nd._isDefault=!0;
  *         else { 警告 + stub 所有 uniCloud.* 方法... }})()
  *
- *   HBuilderX GUI 编译时会把 pre-baked 的云空间配置注入到 `Aa` 变量,
- *   但 pnpm CLI 编译不会 (见 known-issues #19), 结果 runtime 命中 else 分支,
- *   所有 uniCloud.callFunction / uploadFile 都返回 reject Promise。
+ *   # dev 模式 (development):
+ *   (() => {
+ *     const e2 = O;
+ *     let t2 = {};
+ *     if (e2 && 1 === e2.length)
+ *       t2 = e2[0], er = er.init(t2), er._isDefault = true;
+ *     else { ... }
+ *   })()
  *
- * 解法: 本脚本在 vendor.js 头部声明
- *   let Aa = [{provider, spaceId, clientSecret}, ...];
- *   这样 IIFE 看到的 `e` 是 length=1 的数组, 自动走 nd.init(t) 正确分支。
+ * HBuilderX GUI 编译时会把 pre-baked 的云空间配置注入到 `Aa`(build) 或 `O`(dev)
+ * 顶层变量, 但 pnpm CLI 编译不会 (见 known-issues #19)。结果 runtime 命中 else 分支,
+ * 所有 uniCloud.callFunction / uploadFile 都返回 reject Promise。
+ *
+ * 解法: 本脚本在 vendor.js 头部声明 BOTH
+ *   var Aa = [{...}];
+ *   var O  = [{...}];
+ * 这样无论 webpack minify 出哪个变量名, IIFE 看到的都是 length=1 数组,
+ * 自动走 nd.init(t) 正确分支。
  *
  * 配置来源(按优先级):
  *   1) 环境变量 UNICLOUD_PROVIDER / UNICLOUD_SPACE_ID / UNICLOUD_CLIENT_SECRET
@@ -20,10 +34,9 @@
  *   3) 报错退出
  *
  * 用法:
- *   pnpm run build:mp-weixin && node scripts/inject-unicloud-init.mjs
- *   # 或者 dev 模式:
- *   pnpm run dev:mp-weixin   # 启动监听
- *   node scripts/inject-unicloud-init.mjs dist/dev/mp-weixin   # 一次性注入
+ *   pnpm run build:mp-weixin   # 已自动链上 inject (build 模式)
+ *   pnpm run dev:mp-weixin &   # 启动监听
+ *   node scripts/inject-unicloud-init.mjs dist/dev/mp-weixin  # 一次性注入 (dev 模式)
  *
  * 安全: clientSecret 是敏感凭证, 强烈建议通过环境变量注入, 不要硬编码到 manifest.json
  *       (manifest.json 已被 git 跟踪, 见 CHANGELOG.md 097e71d 提交)
@@ -85,31 +98,53 @@ if (!existsSync(DIST_VENDOR)) {
 
 let js = readFileSync(DIST_VENDOR, 'utf8')
 
-// 3. 找 IIFE 起点: 字符串 "(()=>{const e=Aa;"
-const MARKER = '(()=>{const e=Aa;'
-const markerIdx = js.indexOf(MARKER)
-if (markerIdx < 0) {
-  console.error('  ✗ vendor.js 中找不到 IIFE 标记, 可能已注入过或版本不匹配 (uni-app 其他版本用 Aa 不同名)')
-  process.exit(1)
-}
-
-// 4. 防重复注入
-if (js.indexOf('/* SchoolBuzzMate uniCloud.init injection */') >= 0) {
+// 3. 防重复注入
+const SENTINEL = '/* SchoolBuzzMate uniCloud.init injection */'
+if (js.indexOf(SENTINEL) >= 0) {
   console.log('  ✓ vendor.js 已注入过, 跳过')
   process.exit(0)
 }
 
-// 5. 在 IIFE 前插入: 注入 Aa 变量声明
+// 4. 找到至少一个 IIFE 标记, 识别 build vs dev 模式
+//    build 模式特征: (()=>{const e=Aa;
+//    dev   模式特征: }();\n(() => {\n  const e2 = O;
+//    (末尾的 IIFE 紧接在前一个 }(); 后, dev webpack 缩进 2 spaces)
+const MARKERS = [
+  { name: 'build', pattern: '(()=>{const e=Aa;', varName: 'Aa' },
+  { name: 'dev',   pattern: '}();\n(() => {\n  const e2 = O;', varName: 'O' },
+]
+
+let detectedMode = null
+for (const m of MARKERS) {
+  if (js.indexOf(m.pattern) >= 0) {
+    detectedMode = m
+    break
+  }
+}
+
+if (!detectedMode) {
+  console.error('  ✗ vendor.js 中找不到任何 IIFE 标记 (build 模式 "(()=>{const e=Aa;" 或 dev 模式 "}();\\n(() => {\\n  const e2 = O;" 都不在)')
+  console.error('    可能原因: uni-app 版本 minification 改了变量名, 或 vendor.js 被替换')
+  process.exit(1)
+}
+
+// 5. 在 IIFE 前插入: 注入 Aa 和 O 两个变量声明 (兼容两种模式)
+const arrayLiteral =
+  `[{provider:"${cfg.provider}",spaceId:"${cfg.spaceId}",clientSecret:"${cfg.clientSecret}"}]`
+
 const injection =
-  '/* SchoolBuzzMate uniCloud.init injection */' +
-  `var Aa=[{provider:"${cfg.provider}",spaceId:"${cfg.spaceId}",clientSecret:"${cfg.clientSecret}"}];` +
+  `${SENTINEL}` +
+  `var Aa=${arrayLiteral};` +
+  `var O=${arrayLiteral};` +
   '\n'
 
+const markerIdx = js.indexOf(detectedMode.pattern)
 js = js.slice(0, markerIdx) + injection + js.slice(markerIdx)
 
 writeFileSync(DIST_VENDOR, js, 'utf8')
 
-console.log('  ✓ vendor.js 已注入 uniCloud.init 参数:')
+console.log(`  ✓ vendor.js (mode=${detectedMode.name}) 已注入 uniCloud.init 参数:`)
 console.log(`      provider:    ${cfg.provider}`)
 console.log(`      spaceId:     ${cfg.spaceId}`)
 console.log(`      clientSecret: ${cfg.clientSecret.slice(0, 8)}...${cfg.clientSecret.slice(-4)}  (来源: ${cfg.source})`)
+console.log(`      同时声明 var Aa / var O, 兼容 build 和 dev 两种 webpack minification`)

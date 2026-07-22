@@ -657,3 +657,51 @@ pnpm run dev:mp-weixin
 - 新增 `vite-plugin-unicloud-init.js` + `.d.ts`(兜底)
 - 更新 `vite.config.ts`(注册 plugin)
 - 更新 `package.json` 加 `watch:unicloud` 脚本
+
+## 问题 31: vendor.js 顶层 const O 冲突 — 注入策略必须改为改写 IIFE 内部 (2026-07-22)
+
+**症状**:
+- 早期方案 (#29/#30) 在 vendor.js 顶层加 `var Aa = [...]; var O = [...]` 试图覆盖 webpack 的 free variable
+- 用户在微信开发者工具报 `Error: file: common/vendor.js unknown: Unexpected token (11169:48)`, `app.js 错误: module 'common/vendor.js' is not defined`
+
+**根因**(三个叠加 bug):
+1. **位置错位** — webpack 把 IIFE 链写在嵌套作用域里, 看起来是模块顶层, 实际是某个内部函数体. 在 marker 之前注入 = 落到内部函数体内 = 语法错乱 (`var Aa = ...;` 后跟着 `}();` 闭合外层 IIFE, 但我们的 `var` 已经把这个 `}` 提前消耗了)
+2. **const 重复声明** — vendor.js 在 line 8558 已经 `const b = true, E = "...", O = T("[]") || []`, 顶层有 `const O`. 在 module strict 模式下, `var O` + `const O` 同名冲突 → `SyntaxError: Identifier 'O' has already been declared`
+3. **`"use strict"` 时序** — 如果把注入放在 `"use strict";` 之前, 注入行本身在非 strict 模式, 但 IIFE 在 strict, 跨模式的 const 重声明同样失败
+
+**正解**(综合三种修法):
+1. **锚点改成 IIFE 内部** — marker 从 `(() => {\n  const e2 = O;` 切, 这样注入位置天然在 IIFE 内部
+2. **不注入新变量, 直接改写 IIFE 里的赋值** — 把 `const e2 = O;` 改成 `const e2 = __UNICLOUD_CFG__;`, 把 `const e = Aa;` 改成 `const e = __UNICLOUD_CFG__;`
+3. **在 `"use strict";` 之后, 用唯一名字 `var __UNICLOUD_CFG__ = [...];` 注入** — 用 `var` (允许重复声明) + 唯一名 (避开任何已存在的变量), 放在 strict 之后避免跨模式问题
+
+**位置**:
+```js
+// 1) 在 "use strict"; 之后立即注入 (lines ~3)
+"use strict";
+var __UNICLOUD_CFG__ = [{provider:"aliyun", spaceId:"...", clientSecret:"..."}];
+
+// 2) 把 IIFE 里的赋值从 = O / = Aa 改成 = __UNICLOUD_CFG__ (line ~11173)
+(() => {
+  const e2 = __UNICLOUD_CFG__;   // ← 现在 length=1, 走 nd.init(t) 正确分支
+  ...
+})()
+```
+
+**为什么不用 var Aa / var O**:
+- vendor.js 顶层 `const O` 已经声明(让 webpack 的自由变量有兜底 = `T("[]") || []`)
+- 任何 `var O` 在 module strict 模式下都触发 `already declared`
+- 选 `__UNICLOUD_CFG__` (独特下划线包裹) 是因为 webpack terser 几乎不会输出这么长的标识符, 100% 不冲突
+
+**清单**:
+- 改 `scripts/inject-unicloud-init.mjs`:
+  - 删除 `var Aa / var O` 注入
+  - 改为 `"use strict";` 之后注入 `var __UNICLOUD_CFG__ = [...];`
+  - IIFE 字符串替换: `(()=>{const e=Aa;` → `(()=>{const e=__UNICLOUD_CFG__;` 和 `(() => {\n  const e2 = O;` → `(() => {\n  const e2 = __UNICLOUD_CFG__;`
+- 验证 `node --check dist/dev/mp-weixin/common/vendor.js` 通过 (0 错误)
+- 验证 HMR rebuild 后 watcher 自动重注入仍能产出合法 vendor.js
+
+**踩过的弯路**(沉淀):
+- ❌ 把 marker 锚点放在 `}();` 的 `}` 上 → 注入位置在 IIFE 体内
+- ❌ 用 `var O` 试图覆盖 webpack free variable → `const O` 冲突
+- ❌ 注入在 `"use strict";` 之前 → 跨模式问题
+- ❌ 用 acorn 之类的语法验证 `node --check` 报错 → 注意 webpack 输出的 vendor.js 自带重复 `_export_sfc` 等 const (uni-app 设计如此), 只有注入本身的 const 重声明才是我们的错

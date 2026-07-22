@@ -105,41 +105,53 @@ if (js.indexOf(SENTINEL) >= 0) {
   process.exit(0)
 }
 
-// 4. 找到至少一个 IIFE 标记, 识别 build vs dev 模式
-//    build 模式特征: (()=>{const e=Aa;
-//    dev   模式特征: }();\n(() => {\n  const e2 = O;
-//    (末尾的 IIFE 紧接在前一个 }(); 后, dev webpack 缩进 2 spaces)
+// 4. 找到 IIFE 标记, 识别 build vs dev 模式, 然后把 IIFE 里的赋值语句替换成字面量
+//    build 模式: (()=>{const e=Aa;  →  (()=>{const e=[{...}];
+//    dev   模式: (() => {\n  const e2 = O;  →  (() => {\n  const e2 = [{...}];
+// 关键: 不再注入新 var (vendor.js 顶层已 const O = ..., 同名 var 会冲突),
+//       直接在 IIFE 内部把外部变量引用替换成我们的配置数组字面量。
+//       这样 IIFE 看到的 e/e2 是 length=1 数组, 自动走 nd.init(t) 正确分支。
 const MARKERS = [
-  { name: 'build', pattern: '(()=>{const e=Aa;', varName: 'Aa' },
-  { name: 'dev',   pattern: '}();\n(() => {\n  const e2 = O;', varName: 'O' },
+  { name: 'build', find: '(()=>{const e=Aa;',           replace: '(()=>{const e=__UNICLOUD_CFG__;' },
+  { name: 'dev',   find: '(() => {\n  const e2 = O;',   replace: '(() => {\n  const e2 = __UNICLOUD_CFG__;' },
 ]
+
+const arrayLiteral = `[{provider:"${cfg.provider}",spaceId:"${cfg.spaceId}",clientSecret:"${cfg.clientSecret}"}]`
 
 let detectedMode = null
 for (const m of MARKERS) {
-  if (js.indexOf(m.pattern) >= 0) {
+  if (js.indexOf(m.find) >= 0) {
     detectedMode = m
     break
   }
 }
 
 if (!detectedMode) {
-  console.error('  ✗ vendor.js 中找不到任何 IIFE 标记 (build 模式 "(()=>{const e=Aa;" 或 dev 模式 "}();\\n(() => {\\n  const e2 = O;" 都不在)')
+  console.error('  ✗ vendor.js 中找不到任何 IIFE 标记 (build 模式 "(()=>{const e=Aa;" 或 dev 模式 "(() => {\\n  const e2 = O;" 都不在)')
   console.error('    可能原因: uni-app 版本 minification 改了变量名, 或 vendor.js 被替换')
   process.exit(1)
 }
 
-// 5. 在 IIFE 前插入: 注入 Aa 和 O 两个变量声明 (兼容两种模式)
-const arrayLiteral =
-  `[{provider:"${cfg.provider}",spaceId:"${cfg.spaceId}",clientSecret:"${cfg.clientSecret}"}]`
+// 5. 在 vendor.js 的 "use strict" 之后, IIFE 之前, 注入 var __UNICLOUD_CFG__ = [...];
+//    关键:
+//    - 必须放在 "use strict" 之后 (否则模块顶层会与后续 _export_sfc 等 const 重定义冲突)
+//    - 用 var 而不是 const (var 允许重复声明, 不会触发 'already declared')
+//    - 用唯一名字 (__UNICLOUD_CFG__) 避免和 vendor.js 已有的 const O / var O / var Aa 冲突
+const STRICT_MARKER = '"use strict";'
+const strictIdx = js.indexOf(STRICT_MARKER)
+if (strictIdx < 0) {
+  console.error('  ✗ vendor.js 找不到 "use strict"; — uni-app 模板变了, 需要重新适配')
+  process.exit(1)
+}
+// 紧跟 "use strict"; 之后插入一行
+const insertPos = strictIdx + STRICT_MARKER.length
+js = js.slice(0, insertPos)
+  + '\n' + SENTINEL
+  + `\nvar __UNICLOUD_CFG__=${arrayLiteral};`
+  + js.slice(insertPos)
 
-const injection =
-  `${SENTINEL}` +
-  `var Aa=${arrayLiteral};` +
-  `var O=${arrayLiteral};` +
-  '\n'
-
-const markerIdx = js.indexOf(detectedMode.pattern)
-js = js.slice(0, markerIdx) + injection + js.slice(markerIdx)
+// 6. 把 IIFE 里的赋值改成读 __UNICLOUD_CFG__
+js = js.split(detectedMode.find).join(detectedMode.replace)
 
 writeFileSync(DIST_VENDOR, js, 'utf8')
 
@@ -147,4 +159,4 @@ console.log(`  ✓ vendor.js (mode=${detectedMode.name}) 已注入 uniCloud.init
 console.log(`      provider:    ${cfg.provider}`)
 console.log(`      spaceId:     ${cfg.spaceId}`)
 console.log(`      clientSecret: ${cfg.clientSecret.slice(0, 8)}...${cfg.clientSecret.slice(-4)}  (来源: ${cfg.source})`)
-console.log(`      同时声明 var Aa / var O, 兼容 build 和 dev 两种 webpack minification`)
+console.log(`      IIFE 内 const e2 = __UNICLOUD_CFG__ (避开 vendor.js 顶层 const O 冲突, 见 #31)`)

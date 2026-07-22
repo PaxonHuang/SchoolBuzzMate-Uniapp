@@ -47,8 +47,10 @@ export default function unicloudInitPlugin() {
       }
     },
 
-    // dev 模式 transform hook: 拦截 vendor.js 输出, 在内容前面追加 var Aa / var O 声明
-    // build 模式 transform hook 也会被 vite 调用 (每个 emit 阶段)
+    // dev 模式 transform hook: 拦截 vendor.js 输出, 在内容前面追加 var __UNICLOUD_CFG__ 声明
+    // 并把 IIFE 内的 const e2 = O; 改成 = __UNICLOUD_CFG__;
+    // 注意: uni-app 的 emit 走自己的 pipeline, transform hook 大概率拦截不到 vendor.js,
+    //       这里只是兜底, 主路径靠 scripts/unicloud-init-watcher.mjs
     transform(code, id) {
       if (!cfg) return null
       if (!id) return null
@@ -58,11 +60,15 @@ export default function unicloudInitPlugin() {
       const arr = `[{provider:"${cfg.provider}",spaceId:"${cfg.spaceId}",clientSecret:"${cfg.clientSecret}"}]`
       const injection =
         `/* SchoolBuzzMate uniCloud.init injection */` +
-        `var Aa=${arr};` +
-        `var O=${arr};` +
+        `var __UNICLOUD_CFG__=${arr};` +
         '\n'
+      let out = injection + code
+      // 同步把 IIFE 内部赋值改成读 __UNICLOUD_CFG__
+      out = out
+        .replace('(()=>{const e=Aa;', '(()=>{const e=__UNICLOUD_CFG__;')
+        .replace('(() => {\n  const e2 = O;', '(() => {\n  const e2 = __UNICLOUD_CFG__;')
       return {
-        code: injection + code,
+        code: out,
         map: null,
       }
     },

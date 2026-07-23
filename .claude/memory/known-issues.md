@@ -705,3 +705,51 @@ var __UNICLOUD_CFG__ = [{provider:"aliyun", spaceId:"...", clientSecret:"..."}];
 - ❌ 用 `var O` 试图覆盖 webpack free variable → `const O` 冲突
 - ❌ 注入在 `"use strict";` 之前 → 跨模式问题
 - ❌ 用 acorn 之类的语法验证 `node --check` 报错 → 注意 webpack 输出的 vendor.js 自带重复 `_export_sfc` 等 const (uni-app 设计如此), 只有注入本身的 const 重声明才是我们的错
+
+## 问题 32: Git commit 误用 root@hxp-qc7.localdomain + Co-Authored-By: Claude footer (2026-07-23)
+
+**症状**:
+- WSL2 Ubuntu 24.04 容器内跑 `git commit` 后, GitHub collaborators 视图显示新 commit 作者是 `root <root@hxp-qc7.localdomain>`, 而不是真实身份 `PaxonHuang <quenchkidney@outlook.com>`
+- 部分 commit message 末尾自动追加 `Co-Authored-By: Claude <noreply@anthropic.com>`
+
+**根因**:
+1. **git global identity 没设**: WSL2 容器开新 session 时, 全局 `user.name`/`user.email` 是空, git 退回宿主默认值 `root@hxp-qc7.localdomain`. 11 个 commit (37d7840 ~ 25ce6c6) 全部中招
+2. **AI 协作 footer**: Claude Code / Cursor / Codex 等 AI 工具自动在 commit 末尾加 `Co-Authored-By: ... <noreply@anthropic.com>`, 用户没主动加但工具注入, 4 个 commit 中招
+
+**预防**:
+- ✅ 在容器/新 session 里提交前, 先验证 `git config user.email` 输出 `quenchkidney@outlook.com`; 否则 `git config --global user.name "PaxonHuang" && git config --global user.email "quenchkidney@outlook.com"`
+- ✅ `.gitconfig` 加 `[commit] template = ~/.gitmessage` + 默认模板不含 `Co-Authored-By:` 段
+- ✅ Claude Code `~/.claude/settings.json` 全局关闭 AI commit footer (如果工具支持)
+- ✅ 提交后立即跑 `git log -1 --format='%an <%ae> | %s'` 自检
+
+**修复流程**(已经走过的, 直接复用):
+1. **备份**: `git branch backup/before-author-fix-$(date +%F)`, 防止 rebase 翻车
+2. **抓原 dates**: `git log --reverse --format='%s|%aI|%cI' <good-parent>..backup/... > /tmp/orig_dates.txt`
+3. **逐 commit 修正**:
+   ```bash
+   GIT_SEQUENCE_EDITOR='sed -i -e "s/^pick /edit /"' git rebase -i <good-parent>
+   while rebase in progress; do
+     GIT_AUTHOR_DATE="$adate" GIT_COMMITTER_DATE="$cdate" \
+     GIT_AUTHOR_NAME="PaxonHuang" GIT_AUTHOR_EMAIL="quenchkidney@outlook.com" \
+     GIT_COMMITTER_NAME="PaxonHuang" GIT_COMMITTER_EMAIL="quenchkidney@outlook.com" \
+       git commit --amend --author="PaxonHuang <quenchkidney@outlook.com>" --no-edit --no-verify
+     GIT_EDITOR=true git rebase --continue
+   done
+   ```
+   - ⚠️ **`git commit --amend` 不读 `GIT_AUTHOR_*` env vars** — 必须用 `--author="Name <email>"` 标志
+   - ⚠️ **`%s` 不一定只是 subject** — 如果 commit message 把 subject/body 拼成一行 (旧 sed 折叠过换行), `%s` 会返回整段; 用 `git log -1 --format=%B | head -1` 取 subject 才稳
+4. **force push**: `git -c http.version=HTTP/1.1 push --force-with-lease origin <branch>` (走 HTTP/1.1 防 #17 HTTP/2 reset)
+5. **验证**:
+   ```bash
+   gh api repos/PaxonHuang/SchoolBuzzMate-Uniapp/commits?sha=<branch>&per_page=15 \
+     --jq '.[] | select(.commit.author.email == "root@hxp-qc7.localdomain") | .sha'
+   gh api repos/PaxonHuang/SchoolBuzzMate-Uniapp/commits?sha=<branch>&per_page=15 \
+     --jq '.[] | select(.commit.message | test("Co-Authored-By:.*Claude")) | .sha'
+   ```
+   两条 query 都应返回空。
+
+**关联**:
+- 修复脚本: `/tmp/fix-author-v3.sh` (backup: `/tmp/fix-author.sh`, `/tmp/fix-author-v2.sh`)
+- 备份分支: `backup/before-author-fix-2026-07-23` (1 周后删)
+- 同样的坑在 EchoGlove 项目也踩过 (2026-07-23 filter-branch fix), 互相印证这是反复出现的运维盲点
+- 全局记忆文件: `~/.claude/projects/-home-SchoolBuzzProjects-SchoolBuzzMate-Uniapp/memory/git-identity-discipline.md` + `~/.claude/projects/-home-EchoGloveHugeProjects/memory/git-identity-discipline.md`

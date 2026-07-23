@@ -197,6 +197,8 @@ exports.main = async (event, context) => {
 - 所有云函数返回 `{ code, msg, data }`, 前端 `callCloudFunction` 自动 throw
 - 不要用 HBuilderX (Windows + Node v22 下有 ESM bug); 用 `pnpm` CLI + 微信开发者工具
 - 云函数永远走软删除 (`status=0`), 不直接 `db.collection().remove()`
+- **Git 提交必须用 `PaxonHuang <quenchkidney@outlook.com>`** (与 GitHub 关联的真实身份), 绝不能 fallback 到 `root@hxp-qc7.localdomain` 或任何宿主默认身份 — 提交前先 `git config user.email` 验证
+- **Commit message 禁止加 `Co-Authored-By: Claude <noreply@anthropic.com>`** 或任何 AI 协作署名 footer (Co-Authored-By: / Generated with / 🤖 行都禁止)
 
 ## 最近一次工作 (WSL2 迁移 + M3 部署收尾, 2026-07-15 ~ 07-17)
 
@@ -206,6 +208,12 @@ exports.main = async (event, context) => {
 - `19333a0` docs(wsl2): 代理改为方案A(复用 Windows Clash + 自动代理)
 - `e04094d` chore(wsl2): 迁移准备 — 行尾规范 + 跨边界脚本 + 文档/技能
 - `097e71d` chore(security): IDkeys.txt 移出版跟踪 + clientSecret 支持环境注入
+
+**2026-07-23 修复 commit 元数据 (root → PaxonHuang)**:
+- 此前 11 个 WSL2/M3 收尾 commit (`37d7840` ~ `25ce6c6`) 因 git global identity 未设, 误用 `root@hxp-qc7.localdomain`, 4 个 commit 还带 `Co-Authored-By: Claude` footer
+- 已用 `git rebase -i 19333a0` + `git commit --amend --author=` 全部修正为 `PaxonHuang <quenchkidney@outlook.com>`, dates 与 backup 分支对齐, footer 已剥离
+- 已 force-push 到 GitHub, `gh api` 验证无 root 作者残留, 无 Claude footer 残留
+- 修复脚本 `/tmp/fix-author-v3.sh`, 备份分支 `backup/before-author-fix-2026-07-23` 保留 1 周再删
 
 **M3 部署已闭环 (2026-07-17)**:
 - ✅ WSL2 Ubuntu 24.04 + Node v22.23.1 + pnpm 10.10.0

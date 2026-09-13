@@ -12,7 +12,7 @@
 
 ## 订单 schema (`orders`)
 
-- `order_no` 格式: `SJ + yyyyMMddHHmmss + 6位随机` (M3 在 `order-co/index.obj.js` 顶部的 `genOrderNo()`)
+- `order_no` 格式: `SJ + yyyyMMddHHmmss + 6位随机` (M3 在 `order-co/index.js` 顶部的 `genOrderNo()`)
 - `product_snapshot`: 下单时锁定的 `{title, price, original_price, images, category, condition, trade_method[]}`
 - `status_log[]`: 每次状态变更追加 `{status, operator_id, operator_role, time, note}`
 - `address?`: 仅 express 模式有

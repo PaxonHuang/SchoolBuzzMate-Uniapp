@@ -35,11 +35,11 @@ export function fooAction(params: FooParams): Promise<FooResult> {
 
 ```
 uniCloud-aliyun/cloudfunctions/<name>-co/
-├─ index.obj.js      # 主入口, ACTIONS map + main
+├─ index.js      # 主入口, ACTIONS map + main
 ├─ package.json      # dependencies + cloudfunction-config + triggers
 ```
 
-### index.obj.js 模板
+### index.js 模板
 
 ```js
 'use strict'
@@ -85,7 +85,7 @@ exports.main = async (event, context) => {
 {
   "name": "<name>-co",
   "version": "1.0.0",
-  "main": "index.obj.js",
+  "main": "index.js",
   "dependencies": {},
   "extensions": { "uni-cloud-jql": {} },
   "cloudfunction-config": {

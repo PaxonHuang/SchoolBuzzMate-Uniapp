@@ -61,7 +61,7 @@ pnpm run dev:sh            # WSL2 编译监听 + 尝试打开 Windows 微信开�
 pnpm run deploy:cloud:sh   # 经互操作调 Windows HBuilderX CLI 上传云函数
 ```
 
-- 微信开发者工具导入：`\\wsl.localhost\Ubuntu\home\<用户>\SchoolBuzzProjects\SchoolBuzzUniAPP\dist\dev\mp-weixin`
+- 微信开发者工具导入：`\\wsl.localhost\Ubuntu-24.04\home\<用户>\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\dist\dev\mp-weixin`
 - 完整迁移/使用步骤见 [`docs/WSL2-MIGRATION.md`](docs/WSL2-MIGRATION.md)
 - 行尾由根目录 `.gitattributes` 统一（文本 LF，`.ps1/.bat/.cmd` 保留 CRLF），跨平台无 LF↔CRLF 报错
 
@@ -72,7 +72,7 @@ HBuilderX 在 Windows + Node.js v22 下存在 ESM loader 兼容 bug（`Received 
 ## 项目结构
 
 ```
-SchoolBuzzUniAPP/
+SchoolBuzzMate-Uniapp/
 ├── src/
 │   ├── pages/                  # 主包页面（tabbar）
 │   │   ├── index/              # 首页（商品瀑布流 + 分类筛选）
@@ -153,7 +153,7 @@ products
 每个云函数采用统一的 `ACTIONS` map + `action` 分发：
 
 ```js
-// uniCloud-aliyun/cloudfunctions/product-co/index.obj.js
+// uniCloud-aliyun/cloudfunctions/product-co/index.js
 const ACTIONS = {
   getList:  async (params, context) => { /* 分页查询 */ },
   getDetail: async (params, context) => { /* 详情 + 浏览数 +1 */ },
@@ -171,7 +171,7 @@ exports.main = async (event, context) => {
 }
 ```
 
-文件名 `.obj.js` 是 DCloud 的对象式云函数，新增 action 时同步在 `src/api/` 加对应函数。
+云函数文件名用 `index.js`（**绝不能用 `.obj.js`** — 那是**云对象**后缀，会被部署成云对象从而报 `Method name ... is required`）。新增 action 时同步在 `src/api/` 加对应函数。详见 `.claude/memory/known-issues.md#33`。
 
 ### 商品状态机
 
@@ -222,12 +222,12 @@ pnpm run lint:fix
 | M3: 交易核心 | 📋 | 订单 + 支付（uni-pay） |
 | M4: MVP 上线 | 📋 | 审核 + 发布 |
 
-详见同级目录 `../SchoolBuzzDocs/PROGRESS.md`。
+详见 [`docs/PROGRESS.md`](docs/PROGRESS.md)。
 
 ## 开发规范
 
 1. **新增 API** — 在 `src/api/<feature>.ts` 加函数，从 `src/types/<feature>.ts` 导入类型，调用 `callCloudFunction('<feature>-co', 'action', params)`。
-2. **新增云函数** — 在 `uniCloud-aliyun/cloudfunctions/<feature>-co/index.obj.js` 加 `ACTIONS[name]`，统一异常处理。
+2. **新增云函数** — 在 `uniCloud-aliyun/cloudfunctions/<feature>-co/index.js` 加 `ACTIONS[name]`，统一异常处理。
 3. **新增页面** — `src/pages/`（主包）或 `src/pages-core/`（分包），路由自动从文件路径生成。
 4. **类型先行** — 先在 `src/types/` 定义接口，前后端对齐数据结构。
 5. **ESLint + Husky** — 提交前 `lint-staged` 自动修复。
@@ -235,8 +235,8 @@ pnpm run lint:fix
 ## 相关文档
 
 - `CLAUDE.md` — 给 Claude Code 的项目指引（架构决策、开发规范）
-- `SOP-SPEC-PLAN.md` — 完整技术规划（位于 `../SchoolBuzzDocs/`）
-- `PROGRESS.md` — 详细开发进度（位于 `../SchoolBuzzDocs/`）
+- `SOP-SPEC-PLAN.md` — 完整技术规划（位于仓库根目录）
+- [`docs/PROGRESS.md`](docs/PROGRESS.md) — 详细开发进度
 
 ## License
 

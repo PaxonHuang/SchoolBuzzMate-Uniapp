@@ -61,11 +61,11 @@ Received protocol 'e:'
 
 ## 🐧 WSL2 混合工作流（代码在 WSL2，微信/HBuilderX 在 Windows）
 
-若开发环境已迁到 WSL2（Ubuntu 24.04，如 `~/SchoolBuzzProjects/SchoolBuzzUniAPP`）：
+若开发环境已迁到 WSL2（Ubuntu 24.04，如 `~/SchoolBuzzProjects/SchoolBuzzMate-Uniapp`）：
 
 - **编译/依赖/git 全在 WSL2 原生跑**（`pnpm install` / `pnpm run dev:mp-weixin` / `pnpm type-check`）——native ext4 更快，且绕开 HBuilderX+Node ESM bug。
 - **微信开发者工具 + HBuilderX 是 Windows 程序，留在 Windows**：
-  - 微信开发者工具导入 `\\wsl.localhost\Ubuntu\home\<用户>\SchoolBuzzProjects\SchoolBuzzUniAPP\dist\dev\mp-weixin`
+  - 微信开发者工具导入 `\\wsl.localhost\Ubuntu-24.04\home\<用户>\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\dist\dev\mp-weixin`
   - 建议 `%UserProfile%\.wslconfig` 开 `networkingMode=mirrored`，让 localhost / dev server(`0.0.0.0:9420`) 跨边界互通。
 - **部署脚本跨边界**：WSL2 里用 `.sh` 版本（`pnpm run deploy:cloud:sh` / `e2e:check:sh`），它通过 WSL 互操作调 Windows CLI，路径经 `wslpath -w` 翻译。CLI 路径用环境变量覆盖：
   ```bash
@@ -101,13 +101,15 @@ export async function callCloudFunction<T>(name, action, params = {}): Promise<T
 - `school_users` — 学校扩展表（学号、学院、学生证、is_verified、信用分 100、余额）
 - `products.seller_id` — ⚠️ **指向 `school_users._id`，不是 `uni-id-users._id`**
 
-云函数里要拿当前用户的 `schoolUser._id`，需要先 `db.collection('school_users').where({ user_id: context.UNIID_USER._id }).get()`。所有商品所有权校验都用此规则（参见 `product-co/index.obj.js`）。
+> ⚠️ **2026-09-13 更正**: `context.UNIID_USER` **是虚构字段** —— 项目里没有任何代码填充它, `@dcloudio/types` 里也搜不到, 所以下面这条"规则"目前**从未生效过**(所有需要登录态的 action 都会失败)。正确姿势 = 客户端透传 `uniIdToken` + 服务端 `uni-id-common` 的 `checkToken`。改造尚未完成, 详见 `.claude/memory/known-issues.md#33` 根因 C。
+
+云函数里要拿当前用户的 `schoolUser._id`，需要先 `db.collection('school_users').where({ user_id: context.UNIID_USER._id }).get()`。所有商品所有权校验都用此规则（参见 `product-co/index.js`）。
 
 ### 云函数路由模式（统一约定）
 
 每个云函数都采用 `ACTIONS` map + `action` 参数分发：
 ```js
-// uniCloud-aliyun/cloudfunctions/<name>-co/index.obj.js
+// uniCloud-aliyun/cloudfunctions/<name>-co/index.js
 const ACTIONS = {
   getList: async (params, context) => { ... },
   create: async (params, context) => { ... },
@@ -123,7 +125,7 @@ exports.main = async (event, context) => {
 }
 ```
 
-文件名用 `.obj.js` 后缀（DCloud 的对象式云函数）。新增 action 时同步在 `src/api/<name>.ts` 加对应函数，类型从 `src/types/<name>.ts` 导入。
+云函数文件名用 `index.js`（**绝不能用 `.obj.js`** — 那是**云对象**后缀，会被部署成云对象从而报 `Method name ... is required`）。统一 ACTIONS map + `action` 参数分发。新增 action 时同步在 `src/api/<name>.ts` 加对应函数，类型从 `src/types/<name>.ts` 导入。详见 `.claude/memory/known-issues.md#33`。
 
 ### 权限校验公共模块
 
@@ -132,7 +134,7 @@ exports.main = async (event, context) => {
 - `requireVerified(context)` — 必须通过学生认证（自动加载 `schoolUser`）
 - `requireOwner(context, collection, docId, ownerField)` — 必须为资源所有者
 
-目前 `user-co`/`school-co` 没有完全使用，需要时按 `product-co/index.obj.js` 中手动校验的方式引入。
+目前 `user-co`/`school-co` 没有完全使用，需要时按 `product-co/index.js` 中手动校验的方式引入。
 
 ### 前端架构
 
@@ -157,14 +159,14 @@ exports.main = async (event, context) => {
 | M0: 环境就绪 | ✅ | 项目骨架+文档 |
 | M1: 用户系统 | ✅ | 登录+认证+学校 |
 | M2: 商品系统 | ✅ | 商品发布/列表/详情/搜索 |
-| M3: 交易核心 | ⚠️ 代码已完成, 真机验证待跑 | 订单+uni-pay支付+超时+信用分+评价；先读 `.claude/memory/current-handoff.md` |
+| M3: 交易核心 | ⚠️ 真机首跑暴露 3 个阻断缺陷, 已修 2.5/3 | **先读 `.claude/memory/known-issues.md#33`** — 通道错配(已修) / uni-id-co 未装(待装) / `context.UNIID_USER` 虚构(半修) |
 | M4: MVP上线 | 📋 | 审核+发布 |
 
 ## 相关文档
 
-位于同级目录 `../SchoolBuzzDocs/`：
+位于仓库内（`PROGRESS.md` 已随 2026-09-13 合并入仓）：
 - `SOP-SPEC-PLAN.md` — 完整技术规划
-- `PROGRESS.md` — 开发进度
+- `docs/PROGRESS.md` — 开发进度
 
 ## 开发注意事项
 
@@ -192,7 +194,7 @@ exports.main = async (event, context) => {
 
 - 永远走 `src/api/*.ts` 调云函数, 不在页面直接调 `uniCloud.callFunction`
 - `products.seller_id` 指向 `school_users._id`, 不是 `uni-id-users._id` (三表用户模型)
-- 云函数文件名用 `.obj.js` 后缀, 统一 ACTIONS map + `action` 参数分发
+- 云函数文件名用 `index.js` (**不是** `.obj.js` — 那是云对象后缀, 见 known-issues #33), 统一 ACTIONS map + `action` 参数分发
 - 类型定义在 `src/types/`, 前后端共用, 改字段前后端同步
 - 所有云函数返回 `{ code, msg, data }`, 前端 `callCloudFunction` 自动 throw
 - 不要用 HBuilderX (Windows + Node v22 下有 ESM bug); 用 `pnpm` CLI + 微信开发者工具
@@ -200,7 +202,19 @@ exports.main = async (event, context) => {
 - **Git 提交必须用 `PaxonHuang <quenchkidney@outlook.com>`** (与 GitHub 关联的真实身份), 绝不能 fallback 到 `root@hxp-qc7.localdomain` 或任何宿主默认身份 — 提交前先 `git config user.email` 验证
 - **Commit message 禁止加 `Co-Authored-By: Claude <noreply@anthropic.com>`** 或任何 AI 协作署名 footer (Co-Authored-By: / Generated with / 🤖 行都禁止)
 
-## 最近一次工作 (WSL2 迁移 + M3 部署收尾, 2026-07-15 ~ 07-17)
+## 最近一次工作 (2026-09-13: 真机首跑暴露 3 个阻断缺陷)
+
+用户首次在微信开发者工具里导入 `dist/build/mp-weixin` 运行, 登录页和首页**立即报错**。诊断出 3 个互相独立、且**静态验证永远查不出**的缺陷(完整分析见 `.claude/memory/known-issues.md#33`):
+
+1. **云对象/云函数通道错配** — 6 个 `-co/index.obj.js`(云对象后缀)里只写了 `exports.main`(云函数入口), 客户端又用 `callCloudFunction`(云函数通道)调 → 云端报 `Method name ... is required`。**已修**: 全部改名 `index.js` + `package.json` 的 `main` 同步, 客户端无需改。
+2. **`uni-id-co` 从未引入/部署** — 登录必失败(`fc_function_not_found`)。**待修**: 需在 HBuilderX 插件市场装 `uni-id-pages`(它依赖的 5 个公共模块不在 npm, 只能走插件市场)。
+3. **`context.UNIID_USER` 是虚构字段** — 全项目没有任何代码填充它, 官方类型定义里也没有 ⇒ 所有需要登录态的 action 都会失败。**半修**: 客户端已在 `src/api/unicloud.ts` 透传 `uniIdToken`; 服务端 `common/auth.js` 要等 `uni-id-common` 到位后改用 `checkToken`。
+
+**教训**: M0~M3 的"验证"全是 `type-check` + `build` + `上传云函数` 的静态验证, 从没跑过一次真实云端调用 ⇒ **前三个里程碑的云端功能此前从未成功运行过**。涉及前后端协议的功能, 编译通过/部署成功 ≠ 能跑。
+
+**一起捞回来的**: `uni-config-center/uni-pay/config.json`(微信支付商户配置, 已 gitignore) 在 7 月 WSL2 迁移时被静默漏掉, 只存在于 E: 旧副本, 已抢救回真相树。
+
+## 历史: WSL2 迁移 + M3 部署收尾 (2026-07-15 ~ 07-17)
 
 最近 commit (从 HEAD 倒序, 本次新增):
 - `709bd45` docs(claude): 记录 WSL2 M3 部署收尾 + HBuilderX CLI 真实语法

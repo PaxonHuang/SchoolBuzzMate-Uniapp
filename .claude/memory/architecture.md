@@ -30,7 +30,7 @@ export async function callCloudFunction<T>(
 
 ## 云函数路由模式
 
-每个云函数 `index.obj.js`:
+每个云函数 `index.js`:
 ```js
 const ACTIONS = {
   getList: async (params, context) => { ... },
@@ -121,8 +121,8 @@ src/
 
 ## 参考文件清单 (按热度)
 
-改云函数结构看 → `uniCloud-aliyun/cloudfunctions/product-co/index.obj.js`
-改订单流程看 → `uniCloud-aliyun/cloudfunctions/order-co/index.obj.js`
-改收藏/评价逻辑看 → `uniCloud-aliyun/cloudfunctions/favorites-co/index.obj.js` + `comment-co/`
+改云函数结构看 → `uniCloud-aliyun/cloudfunctions/product-co/index.js`
+改订单流程看 → `uniCloud-aliyun/cloudfunctions/order-co/index.js`
+改收藏/评价逻辑看 → `uniCloud-aliyun/cloudfunctions/favorites-co/index.js` + `comment-co/`
 改前端调用方式看 → `src/api/unicloud.ts` (通用), `<具体>.ts` (业务)
 改类型看 → `src/types/product.ts`, `order.ts`, `comment.ts`

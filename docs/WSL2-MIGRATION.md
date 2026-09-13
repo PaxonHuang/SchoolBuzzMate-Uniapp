@@ -1,7 +1,7 @@
 # WSL2 迁移执行手册 — SchoolBuzzMate
 
 > 目标: 把开发环境从 Windows 11 (`E:\NJTS-Codeprojects-2023\WechatMiniproject\SchoolBuzzUniAPP`)
-> 迁到 WSL2 Ubuntu 24.04 (`~/SchoolBuzzProjects/SchoolBuzzUniAPP`)。
+> 迁到 WSL2 Ubuntu 24.04 (`~/SchoolBuzzProjects/SchoolBuzzMate-Uniapp`)。
 > 原则: **代码/编译/依赖/git 在 WSL2;微信开发者工具 + HBuilderX 留 Windows**(纯 Windows 程序,进不了 WSL2)。
 > Windows 侧原目录在全流程验证通过前**不要删**,作为回滚点。
 
@@ -61,7 +61,7 @@ node -v && pnpm -v
 **方式1(推荐,干净):** 有远端仓库时
 ```bash
 mkdir -p ~/SchoolBuzzProjects && cd ~/SchoolBuzzProjects
-git clone <remote-url> SchoolBuzzUniAPP
+git clone <remote-url> SchoolBuzzMate-Uniapp
 ```
 **方式2(无远端,用 bundle):** 在 Windows 项目根:
 ```powershell
@@ -70,8 +70,8 @@ git bundle create E:\schoolbuzz.bundle --all
 WSL2:
 ```bash
 mkdir -p ~/SchoolBuzzProjects && cd ~/SchoolBuzzProjects
-git clone /mnt/e/schoolbuzz.bundle SchoolBuzzUniAPP
-cd SchoolBuzzUniAPP && git remote remove origin  # 之后按需接真远端
+git clone /mnt/e/schoolbuzz.bundle SchoolBuzzMate-Uniapp
+cd SchoolBuzzMate-Uniapp && git remote remove origin  # 之后按需接真远端
 ```
 然后:
 ```bash
@@ -92,7 +92,7 @@ pnpm run build:mp-weixin    # 产出 dist/build/mp-weixin, node scripts/fix-mp-w
 ```
 **Windows 侧微信开发者工具**导入(注意是 `\\wsl.localhost` 路径):
 ```
-\\wsl.localhost\Ubuntu\home\<用户名>\SchoolBuzzProjects\SchoolBuzzUniAPP\dist\dev\mp-weixin
+\\wsl.localhost\Ubuntu-24.04\home\<用户名>\SchoolBuzzProjects\SchoolBuzzMate-Uniapp\dist\dev\mp-weixin
 ```
 **部署云函数**(WSL2 调 Windows HBuilderX CLI):
 ```bash

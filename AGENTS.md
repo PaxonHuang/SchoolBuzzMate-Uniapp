@@ -80,13 +80,15 @@ export async function callCloudFunction<T>(name, action, params = {}): Promise<T
 - `school_users` — 学校扩展表（学号、学院、学生证、is_verified、信用分 100、余额）
 - `products.seller_id` — ⚠️ **指向 `school_users._id`，不是 `uni-id-users._id`**
 
-云函数里要拿当前用户的 `schoolUser._id`，需要先 `db.collection('school_users').where({ user_id: context.UNIID_USER._id }).get()`。所有商品所有权校验都用此规则（参见 `product-co/index.obj.js`）。
+> ⚠️ **2026-09-13 更正**: `context.UNIID_USER` **是虚构字段** —— 项目里没有任何代码填充它, `@dcloudio/types` 里也搜不到, 所以下面这条"规则"目前**从未生效过**(所有需要登录态的 action 都会失败)。正确姿势 = 客户端透传 `uniIdToken` + 服务端 `uni-id-common` 的 `checkToken`。改造尚未完成, 详见 `.claude/memory/known-issues.md#33` 根因 C。
+
+云函数里要拿当前用户的 `schoolUser._id`，需要先 `db.collection('school_users').where({ user_id: context.UNIID_USER._id }).get()`。所有商品所有权校验都用此规则（参见 `product-co/index.js`）。
 
 ### 云函数路由模式（统一约定）
 
 每个云函数都采用 `ACTIONS` map + `action` 参数分发：
 ```js
-// uniCloud-aliyun/cloudfunctions/<name>-co/index.obj.js
+// uniCloud-aliyun/cloudfunctions/<name>-co/index.js
 const ACTIONS = {
   getList: async (params, context) => { ... },
   create: async (params, context) => { ... },
@@ -102,7 +104,7 @@ exports.main = async (event, context) => {
 }
 ```
 
-文件名用 `.obj.js` 后缀（DCloud 的对象式云函数）。新增 action 时同步在 `src/api/<name>.ts` 加对应函数，类型从 `src/types/<name>.ts` 导入。
+云函数文件名用 `index.js`（**绝不能用 `.obj.js`** — 那是**云对象**后缀，会被部署成云对象从而报 `Method name ... is required`）。统一 ACTIONS map + `action` 参数分发。新增 action 时同步在 `src/api/<name>.ts` 加对应函数，类型从 `src/types/<name>.ts` 导入。详见 `.claude/memory/known-issues.md#33`。
 
 ### 权限校验公共模块
 
@@ -111,7 +113,7 @@ exports.main = async (event, context) => {
 - `requireVerified(context)` — 必须通过学生认证（自动加载 `schoolUser`）
 - `requireOwner(context, collection, docId, ownerField)` — 必须为资源所有者
 
-目前 `user-co`/`school-co` 没有完全使用，需要时按 `product-co/index.obj.js` 中手动校验的方式引入。
+目前 `user-co`/`school-co` 没有完全使用，需要时按 `product-co/index.js` 中手动校验的方式引入。
 
 ### 前端架构
 
@@ -141,9 +143,9 @@ exports.main = async (event, context) => {
 
 ## 相关文档
 
-位于同级目录 `../SchoolBuzzDocs/`：
+位于仓库内（`PROGRESS.md` 已随 2026-09-13 合并入仓）：
 - `SOP-SPEC-PLAN.md` — 完整技术规划
-- `PROGRESS.md` — 开发进度
+- `docs/PROGRESS.md` — 开发进度
 
 ## 开发注意事项
 

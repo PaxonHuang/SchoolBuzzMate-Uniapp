@@ -2,7 +2,7 @@
   "name": "order-co",
   "version": "1.0.0",
   "description": "订单云函数（校趣闪搭）",
-  "main": "index.obj.js",
+  "main": "index.js",
   "dependencies": {
     "uni-pay": "file:../common/uni-pay"
   },

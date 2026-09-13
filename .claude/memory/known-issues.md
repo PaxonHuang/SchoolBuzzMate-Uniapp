@@ -753,3 +753,75 @@ var __UNICLOUD_CFG__ = [{provider:"aliyun", spaceId:"...", clientSecret:"..."}];
 - 备份分支: `backup/before-author-fix-2026-07-23` (1 周后删)
 - 同样的坑在 EchoGlove 项目也踩过 (2026-07-23 filter-branch fix), 互相印证这是反复出现的运维盲点
 - 全局记忆文件: `~/.claude/projects/-home-SchoolBuzzProjects-SchoolBuzzMate-Uniapp/memory/git-identity-discipline.md` + `~/.claude/projects/-home-EchoGloveHugeProjects/memory/git-identity-discipline.md`
+
+---
+
+## 问题 33: 【真机首次运行才暴露】云函数/云对象通道错配 + uni-id-co 缺失 + context.UNIID_USER 是虚构字段 (2026-09-13)
+
+**症状** (微信开发者工具导入 `dist/build/mp-weixin` 后):
+1. 登录页: `[uni-id-co]: fc_function_not_found uni-id-co, 云函数[uni-id-co]在云端不存在`
+2. 首页: `[product-co]: Method name ... is required`
+3. 即: **M1/M2/M3 的云端调用从来没有一次真正成功过**。
+
+**为什么一直没发现**: M0~M3 的"验证"全部是静态的——`pnpm type-check` + `pnpm run build:mp-weixin` + 上传云函数。**从来没有跑过一次真实的云端调用**(真机闭环一直挂着"待跑")。这类错配只有真机/模拟器实际发请求才会暴露。教训: 涉及前后端协议的功能, "编译通过 + 部署成功" ≠ 能跑。
+
+### 根因 A: `.obj.js` 后缀 = 云对象, 但内容写的是云函数 (`exports.main`)
+
+uniCloud 有**两个互相独立的调用通道** (见 `@dcloudio/uni-cloud` SDK 的 `J={CLIENT_DB:"clientdb",CLOUD_FUNCTION:"cloudfunction",CLOUD_OBJECT:"cloudobject"}`):
+
+| | 云函数 | 云对象 |
+|---|---|---|
+| 文件名 | `index.js` | `index.obj.js` |
+| 服务端入口 | `exports.main = (event, context) => {}` | `module.exports = { 方法名(){}, ... }` |
+| 客户端调用 | `uniCloud.callFunction({name, data})` | `uniCloud.importObject(name).方法名(params)` |
+| 内部通道 | `callFunction` → CLOUD_FUNCTION | `importObject` → **callObject**(objectName/methodName/params) |
+
+本项目 6 个 `-co/index.obj.js` 全部是「`.obj.js` 后缀 + 只有 `exports.main`」——**后缀让它被部署成云对象, 内容却没有任何云对象方法**; 客户端又用 `callCloudFunction`(云函数通道)去调。两边都错, 云端直接拒绝: `Method name ... is required`(注意: 不是代码里那个 `未知操作: ${action}` 兜底, 说明请求压根没走到 `exports.main`——这就是判定依据)。
+
+**判定技巧**: 报错是"方法名"类路由错误而不是业务兜底文案 ⇒ 请求没进用户代码 ⇒ 通道/入口选错了。
+
+**解法**: 统一成**云函数**(保留项目原有的 ACTIONS map + 薄 api 层设计):
+```
+git mv uniCloud-aliyun/cloudfunctions/<name>-co/index.obj.js → index.js
+package.json: "main": "index.obj.js" → "index.js"
+```
+客户端 `callCloudFunction` **不用改**。已在 2026-09-13 全部改完 (6 个)。
+> 备选方案(未采用): 改成真正的云对象 (`module.exports = { getList, create, ... }`) + 7 个 `src/api/*.ts` 全改 `importObject`。要改就该整体迁移, 别混着来。
+
+### 根因 B: `uni-id-co` 从未引入也未部署
+
+`src/api/auth.ts` 一直在调 `uni-id-co`, 但项目里**没有它的源码**, 云端也没有。SOP/skill 文档里把它写成"官方云函数(rarely modified)", 其实它是**官方云对象**, 客户端必须 `importObject`。
+
+官方方法名(2026-09-13 从 npm `uni-id-co@1.1.14` 核对):
+- ✅ `loginByWeixin` / `logout` —— 项目用对了名字
+- ❌ `getUserInfo` —— **不存在**, 对应的是 `getAccountInfo`
+
+获取途径: `uni-id-co` 在 npm 上有 (DCloud 发布, v1.1.14), 但它依赖的 5 个公共模块里 **`uni-id-common` / `uni-cloud-s2s` / `uni-open-bridge-common` 都不在 npm**(只有 `uni-captcha` 有)。
+⇒ 正解是 **HBuilderX 插件市场安装 `uni-id-pages`**, 一次性把云对象 + 5 个公共模块拉进 `uni_modules/`。手工从 npm 拼装是死路。
+
+### 根因 C: `context.UNIID_USER` 是**虚构字段**
+
+`common/auth.js` 和全部 6 个云函数都读 `context.UNIID_USER._id`, 但:
+- 全项目 grep 不到任何 `uni-id-common` / `checkToken` / `uniIdToken` 调用 ⇒ **没有任何代码/模块去填充它**
+- `@dcloudio/types` 里也**搜不到** `UNIID_USER` ⇒ 不是平台注入的字段
+
+即: 云函数 context 里根本没有 `UNIID_USER`, 所有需要登录态的 action 都会失败(读 `._id` 报 TypeError 或直接判未登录)。
+
+**正解** (uni-id 标准姿势, 需先有 `uni-id-common` 公共模块):
+```js
+// 客户端 src/api/unicloud.ts 已改: 每次调用带上 uniIdToken
+await uniCloud.callFunction({ name, data: { action, params, uniIdToken: uni.getStorageSync('token') } })
+
+// 服务端 common/auth.js
+const uniIdCommon = require('uni-id-common')
+const uniId = uniIdCommon.createInstance({ context })
+const payload = await uniId.checkToken(event.uniIdToken)  // payload.uid = uni-id-users._id
+```
+`m3-transaction-core.md` 里那条挂着的 `- [ ] uni-id 配置需要 wx_openid 注入到 context.UNIID_USER` 就是这个问题, 一直没结。
+
+**待办**: 客户端 token 透传已做(2026-09-13); 服务端 `common/auth.js` + 6 个云函数的登录态校验要等 `uni-id-common` 到位后一起改。
+
+**关联**:
+- `src/api/unicloud.ts` (通道说明 + token 透传 + 空 result 兜底)、`src/api/auth.ts` (改 importObject)
+- 官方参照片段(在本地 SDK 里): `@dcloudio/uni-cloud/dist/uni-cloud.es.js` 里的 `importObject("uni-id-co",{customUI:!0})` 用法
+- `SOP-SPEC-PLAN.md` / `coding-conventions.md` / `CLAUDE.md` 里"云函数文件名用 .obj.js"的约定**是错的**, 需同步订正

@@ -21,3 +21,6 @@ uniCloud-aliyun/cloudfunctions/common/uni-config-center/uni-pay/config.json
 # 本地凭证/密钥速记 (含 ClientSecret 等, 不入仓)
 IDkeys.txt
 .remember/
+
+# HBuilderX 插件市场安装的 uni_modules (服务端模块已迁至 uniCloud-aliyun/cloudfunctions/)
+src/uni_modules/

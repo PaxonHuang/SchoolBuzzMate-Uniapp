@@ -825,3 +825,111 @@ const payload = await uniId.checkToken(event.uniIdToken)  // payload.uid = uni-i
 - `src/api/unicloud.ts` (通道说明 + token 透传 + 空 result 兜底)、`src/api/auth.ts` (改 importObject)
 - 官方参照片段(在本地 SDK 里): `@dcloudio/uni-cloud/dist/uni-cloud.es.js` 里的 `importObject("uni-id-co",{customUI:!0})` 用法
 - `SOP-SPEC-PLAN.md` / `coding-conventions.md` / `CLAUDE.md` 里"云函数文件名用 .obj.js"的约定**是错的**, 需同步订正
+
+---
+
+## 问题 34: uni-id 三套体系选错版本 + 官方模块的正确获取途径 (2026-09-15)
+
+**背景**: 修 #33 根因 B/C 需要 `uni-id-co` + `uni-id-common` 等模块。过程中踩了一串坑, 记下来避免重走。
+
+### 坑 1: 插件市场里的 `uni-id` 是 **V2 遗留**, 不是 `uni-id-co`
+
+按 #33 的计划让用户在 HBuilderX 插件市场装 `uni-id-pages`。用户实际装到的是 **`uni-id@3.3.34`** (插件 id=uni-id), 它解包到 `src/uni_modules/uni-id/`, 提供的是**公共模块 `uni-id`**(老 V2 API: `createInstance/checkToken/createToken/verifyToken`), **不含 `uni-id-co` 云对象**。
+
+DCloud 有三套并存的名字, 极易混淆:
+| 名字 | 是什么 | 在哪 |
+|---|---|---|
+| `uni-id` (V2) | 老的公共模块, 单文件 | 插件市场 / gitee `dcloud/uni-id` |
+| `uni-id-common` (V3) | 新公共模块 (token 生成/校验/刷新) | **不在 npm**, 只在插件市场/github 示例仓库 |
+| `uni-id-co` | 云**对象** (登录/注册/绑定等全流程) | **不在插件市场单卖**, 随 `uni-id-pages` 提供 |
+| `uni-id-pages` | 前端页面 + 云对象 + 全部依赖 | 插件市场 |
+
+**结论**: 要云端全流程就必须拿 `uni-id-pages` 的产物; 只要 `checkToken` 的话 `uni-id-common` 就够。
+
+### 坑 2: npm 上只有半套
+
+`npm view` 逐个查证 (2026-09-13):
+- `uni-id-co` ✓ 有 (DCloud 发布, 1.1.14)
+- `uni-captcha` ✓ 有 (0.1.0, 但版本老)
+- `uni-id-common` ✗ 404
+- `uni-cloud-s2s` ✗ 404
+- `uni-open-bridge-common` ✗ 404
+- `uni-id-pages` ✗ 404
+
+⇒ 从 npm 凑不齐依赖树, 是死路。
+
+### ✅ 正解: 从官方示例仓库直取 (可重复、可脚本化)
+
+**`https://github.com/dcloudio/hello-uni-id-pages-x`** —— DCloud 官方示例, `uni_modules/` 下**完整包含**
+`uni-id-pages-x`(内含 `uniCloud/cloudfunctions/uni-id-co/`) + `uni-captcha` + `uni-cloud-s2s` + `uni-config-center` + `uni-id-common` + `uni-open-bridge-common`。
+
+```bash
+# 避开 GitHub API 限流, 直接 clone (注意用 HTTP/1.1 防代理 reset, 同 #17)
+git -c http.version=HTTP/1.1 clone --depth 1 \
+  https://github.com/dcloudio/hello-uni-id-pages-x.git
+# 云对象在: uni_modules/uni-id-pages-x/uniCloud/cloudfunctions/uni-id-co/
+# 依赖模块在: uni_modules/<mod>/uniCloud/cloudfunctions/common/<mod>/
+```
+本次取到的版本: `uni-id-co@1.1.22` (126 文件), `uni-id-common@1.0.19`。
+> 注意 `dcloudio/hello-uni-id-pages-x` 是 **uni-app x (uvue)** 示例, 但 `uniCloud/` 下的服务端代码是纯 JS, 与 uni-app 项目通用。
+
+### 坑 3: 迁移后必须改 `file:` 依赖路径
+
+源仓库的 `package.json` 依赖是 **`uni_modules` 布局**的深度:
+`file:../../../../uni-captcha/uniCloud/cloudfunctions/common/uni-captcha`
+迁到 `uniCloud-aliyun/cloudfunctions/` 后这个路径会解析到**项目外**(实测解析成 `/home/SchoolBuzzProjects/uni-captcha/...`)。必须改成项目约定 `file:../common/<mod>` (与 `order-co` 引用 `uni-pay` 的写法一致)。
+**且注意深度差异**:
+- `cloudfunctions/<fn>/package.json` → `file:../common/<mod>`
+- `cloudfunctions/common/<modA>/package.json` → `file:../<modB>` (**不是** `../common/<modB>`, 它们同在 common/ 下)
+
+校验脚本思路: 遍历所有 `package.json`, 对每条 `file:` 依赖做 `path.normalize(join(dirname(pkg), dep))` 并断言目录存在。本次最终 10/10 全部有效。
+
+### 坑 4: `uni-config-center` 存在**假版本**——装错会让 uni-id-common 直接崩
+
+两个 `index.js` 都自称 `0.0.3`, 但内容天差地别:
+
+| 来源 | 内容 | 影响 |
+|---|---|---|
+| HBuilderX 插件市场装的 | **stub**: `module.exports = id => require('./' + id + '/config.json')` (仅 6 行) | **缺 `hasFile`/`resolve`** → `uni-id-common` (需 `w.hasFile/w.config/w.resolve`) 会抛 `TypeError` |
+| 官方示例仓库的 | 完整实现 (lodash merge + `hasFile`/`resolve`/`config`/`requireFile` 类) | ✅ 正确 |
+
+**判定方法**: `grep -c "hasFile" uni-config-center/index.js` —— 0 就是 stub。
+**实战验证** (本次实测通过):
+```js
+const center = require('./uni-config-center')({ pluginId: 'uni-id' })
+center.hasFile('config.json')  // true
+center.config().tokenSecret    // 存在
+center.resolve('config.json')  // .../uni-config-center/uni-id/config.json
+```
+> 换 `uni-config-center` 的核心风险: 它目录下同时存着 **`uni-id/config.json` 和 `uni-pay/config.json`(含真凭证, 已 gitignore)**。替换 index.js/package.json 时**只覆盖这两个文件, 绝不能动配置目录**。本次已先备份到 job tmp 再覆盖。
+
+### 坑 5: `node --check` 对公共模块会误报
+
+`common/auth.js` 首行原是 `# uni-id 权限验证公共模块` —— uniCloud 编译器接受 `#` 注释, **但标准 Node 不接受**(`node --check` 报 `SyntaxError: Invalid or unexpected token`)。已改为 `//` 让本地静态校验可用。
+
+### uni-id-common 的真实 API 契约 (实测, 非文档推测)
+
+```js
+const uniIdCommon = require('uni-id-common')
+const inst = uniIdCommon.createInstance({ context })   // 内部读 uni-config-center 的 uni-id 插件配置
+const payload = await inst.checkToken(token, { autoRefresh: true })
+// 成功: { code:0, errCode:0, uid, role, permission, exp, iat, ... }
+// 失败: { errCode:'uni-id-check-token-failed'(30202) | 'uni-id-token-expired'(30203), ... }
+```
+**关键**: `checkToken` **从不抛错**, 失败以 `errCode` 返回 ⇒ 判定必须写 `if (!payload || payload.errCode)`, 不能只靠 try/catch。
+另: 配置缺 `tokenSecret` 时 `createInstance` 会抛 `Config parameter missing, tokenSecret is required...`。
+
+### 本次落地的结构
+
+```
+uniCloud-aliyun/cloudfunctions/
+├─ uni-id-co/                 ← 云对象 (index.obj.js, module.exports={方法}) — 客户端用 importObject 调
+├─ common/uni-id-common/      ← checkToken 用
+├─ common/uni-captcha/  uni-cloud-s2s/
+├─ common/uni-open-bridge-common/
+├─ common/uni-config-center/  ← 完整版; 内含 uni-id/ 与 uni-pay/ 配置(已 gitignore)
+└─ {product,order,favorites,comment,user,school}-co/  ← 云函数 (index.js, exports.main)
+```
+`common/auth.js` 与 6 个云函数已改用 `resolveUniIdUser(event, context)` (见 #33 根因 C 的收尾)。
+
+**关联**: #33 (三个根因)、#17 (HTTP/1.1 防代理 reset)。`.gitignore` 已加 `src/uni_modules/`。

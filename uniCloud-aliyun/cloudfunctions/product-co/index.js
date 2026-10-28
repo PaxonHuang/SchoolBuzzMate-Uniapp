@@ -1,5 +1,6 @@
 'use strict'
 
+const { resolveUniIdUser, findSchoolUser } = require('../common/auth.js')
 const db = uniCloud.database()
 const dbCmd = db.command
 
@@ -64,7 +65,7 @@ const ACTIONS = {
     const sellersMap = await resolveSellers(sellerIds)
 
     let likedSet = new Set()
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (userId && listRes.data.length > 0) {
       const likeRes = await db.collection('product_likes')
         .where({
@@ -128,7 +129,7 @@ const ACTIONS = {
 
     let is_liked = false
     let is_owner = false
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (userId) {
       // Check if current user is the seller by comparing school_users._id
       const ownerCheck = await db.collection('school_users')
@@ -147,7 +148,7 @@ const ACTIONS = {
 
   /** 发布商品 */
   create: async (params, context) => {
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (!userId) throw new Error('请先登录')
 
     const schoolUserRes = await db.collection('school_users')
@@ -200,7 +201,7 @@ const ACTIONS = {
 
   /** 编辑商品 */
   update: async (params, context) => {
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (!userId) throw new Error('请先登录')
 
     const { product_id, ...updateFields } = params
@@ -233,7 +234,7 @@ const ACTIONS = {
 
   /** 删除商品（软删除） */
   delete: async (params, context) => {
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (!userId) throw new Error('请先登录')
 
     const { product_id } = params
@@ -259,7 +260,7 @@ const ACTIONS = {
 
   /** 点赞/取消点赞 */
   toggleLike: async (params, context) => {
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (!userId) throw new Error('请先登录')
 
     const { product_id } = params
@@ -298,7 +299,7 @@ const ACTIONS = {
 
   /** 上架/下架 */
   toggleStatus: async (params, context) => {
-    const userId = context.UNIID_USER?._id
+    const userId = context.UNIID_USER?.uid
     if (!userId) throw new Error('请先登录')
 
     const { product_id, status } = params
@@ -371,6 +372,14 @@ exports.main = async (event, context) => {
   if (!ACTIONS[action]) {
     return { code: -1, msg: `未知操作: ${action}` }
   }
+
+  // 2026-09-13 (known-issues.md#33 根因 C): context.UNIID_USER 是虚构字段, 从未被填充。
+  // 改为从 event.uniIdToken 校验出真实身份后注入, 保持各 action 的 (params, context) 签名不变。
+  context.UNIID_USER = await resolveUniIdUser(event, context)
+  const schoolUser = context.UNIID_USER
+    ? await findSchoolUser(context.UNIID_USER.uid)
+    : null
+  if (schoolUser) context.SCHOOL_USER = schoolUser
 
   try {
     const result = await ACTIONS[action](params, context)

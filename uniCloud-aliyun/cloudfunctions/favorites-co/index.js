@@ -1,5 +1,6 @@
 'use strict'
 
+const { resolveUniIdUser, findSchoolUser } = require('../common/auth.js')
 const db = uniCloud.database()
 const dbCmd = db.command
 
@@ -33,7 +34,7 @@ async function resolveSellersMap(sellerIds) {
 
 const ACTIONS = {
   toggle: async (params, context) => {
-    const userId = context.UNIID_USER && context.UNIID_USER._id
+    const userId = context.UNIID_USER && context.UNIID_USER.uid
     if (!userId) throw new Error('请先登录')
     const { product_id } = params
     if (!product_id) throw new Error('缺少 product_id')
@@ -61,7 +62,7 @@ const ACTIONS = {
   },
 
   getList: async (params, context) => {
-    const userId = context.UNIID_USER && context.UNIID_USER._id
+    const userId = context.UNIID_USER && context.UNIID_USER.uid
     if (!userId) throw new Error('请先登录')
 
     const { page = 1 } = params
@@ -115,7 +116,7 @@ const ACTIONS = {
   },
 
   checkBatch: async (params, context) => {
-    const userId = context.UNIID_USER && context.UNIID_USER._id
+    const userId = context.UNIID_USER && context.UNIID_USER.uid
     if (!userId) return { favorited: [] }
     const { product_ids } = params
     if (!Array.isArray(product_ids) || product_ids.length === 0) {
@@ -134,6 +135,14 @@ exports.main = async (event, context) => {
   if (!ACTIONS[action]) {
     return { code: -1, msg: '未知操作: ' + action }
   }
+
+  // 2026-09-13 (known-issues.md#33 根因 C): context.UNIID_USER 是虚构字段, 从未被填充。
+  // 改为从 event.uniIdToken 校验出真实身份后注入, 保持各 action 的 (params, context) 签名不变。
+  context.UNIID_USER = await resolveUniIdUser(event, context)
+  const schoolUser = context.UNIID_USER
+    ? await findSchoolUser(context.UNIID_USER.uid)
+    : null
+  if (schoolUser) context.SCHOOL_USER = schoolUser
   try {
     const data = await ACTIONS[action](params, context)
     return { code: 0, msg: 'success', data }

@@ -1,12 +1,13 @@
 'use strict'
 
+const { resolveUniIdUser, findSchoolUser } = require('../common/auth.js')
 const db = uniCloud.database()
 const dbCmd = db.command
 
 // 路由表
 const ACTIONS = {
   getProfile: async (params, context) => {
-    const userId = context.UNIID_USER._id
+    const userId = context.UNIID_USER.uid
 
     // 查询用户基本资料
     const userRes = await db.collection('uni-id-users').doc(userId).get()
@@ -32,7 +33,7 @@ const ACTIONS = {
   },
 
   updateProfile: async (params, context) => {
-    const userId = context.UNIID_USER._id
+    const userId = context.UNIID_USER.uid
     const { nickname, avatar, gender, mobile } = params
 
     const updateData = {}
@@ -48,7 +49,7 @@ const ACTIONS = {
   },
 
   verifyStudent: async (params, context) => {
-    const userId = context.UNIID_USER._id
+    const userId = context.UNIID_USER.uid
     const { school_id, real_name, student_no, college, major, grade, student_card } = params
 
     // 检查是否已经认证
@@ -92,7 +93,7 @@ const ACTIONS = {
   },
 
   getUserStats: async (params, context) => {
-    const userId = context.UNIID_USER._id
+    const userId = context.UNIID_USER.uid
 
     // products/orders 的 seller_id/buyer_id 存的是 school_users._id,
     // 先把当前用户的 school_users._id 查出来再统计,否则永远为 0
@@ -129,6 +130,14 @@ exports.main = async (event, context) => {
   if (!ACTIONS[action]) {
     return { code: -1, msg: `未知操作: ${action}` }
   }
+
+  // 2026-09-13 (known-issues.md#33 根因 C): context.UNIID_USER 是虚构字段, 从未被填充。
+  // 改为从 event.uniIdToken 校验出真实身份后注入, 保持各 action 的 (params, context) 签名不变。
+  context.UNIID_USER = await resolveUniIdUser(event, context)
+  const schoolUser = context.UNIID_USER
+    ? await findSchoolUser(context.UNIID_USER.uid)
+    : null
+  if (schoolUser) context.SCHOOL_USER = schoolUser
 
   try {
     const result = await ACTIONS[action](params, context)

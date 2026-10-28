@@ -1,10 +1,11 @@
 'use strict'
 
+const { resolveUniIdUser, findSchoolUser } = require('../common/auth.js')
 const db = uniCloud.database()
 const dbCmd = db.command
 
 async function getSchoolUser(context) {
-  const userId = context.UNIID_USER && context.UNIID_USER._id
+  const userId = context.UNIID_USER && context.UNIID_USER.uid
   if (!userId) {
     const err = new Error('请先登录'); err.code = 'UNAUTHORIZED'; throw err
   }
@@ -103,9 +104,9 @@ const ACTIONS = {
     ])
 
     let currentSchoolUserId = null
-    if (context.UNIID_USER && context.UNIID_USER._id) {
+    if (context.UNIID_USER && context.UNIID_USER.uid) {
       const su = await db.collection('school_users')
-        .where({ user_id: context.UNIID_USER._id })
+        .where({ user_id: context.UNIID_USER.uid })
         .field({ _id: true })
         .get()
       currentSchoolUserId = su.data && su.data[0] && su.data[0]._id
@@ -137,6 +138,14 @@ exports.main = async (event, context) => {
   if (!ACTIONS[action]) {
     return { code: -1, msg: '未知操作: ' + action }
   }
+
+  // 2026-09-13 (known-issues.md#33 根因 C): context.UNIID_USER 是虚构字段, 从未被填充。
+  // 改为从 event.uniIdToken 校验出真实身份后注入, 保持各 action 的 (params, context) 签名不变。
+  context.UNIID_USER = await resolveUniIdUser(event, context)
+  const schoolUser = context.UNIID_USER
+    ? await findSchoolUser(context.UNIID_USER.uid)
+    : null
+  if (schoolUser) context.SCHOOL_USER = schoolUser
   try {
     const data = await ACTIONS[action](params, context)
     return { code: 0, msg: 'success', data }

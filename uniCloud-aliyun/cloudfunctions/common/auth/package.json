@@ -1,0 +1,9 @@
+{
+  "name": "auth",
+  "version": "1.0.0",
+  "description": "登录态校验公共模块 (uni-id-common checkToken 封装)",
+  "main": "index.js",
+  "dependencies": {
+    "uni-id-common": "file:../uni-id-common"
+  }
+}

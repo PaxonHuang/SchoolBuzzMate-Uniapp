@@ -1,6 +1,6 @@
 'use strict'
 
-const { resolveUniIdUser, findSchoolUser } = require('../common/auth.js')
+const { resolveUniIdUser, findSchoolUser } = require('auth')
 const db = uniCloud.database()
 const dbCmd = db.command
 

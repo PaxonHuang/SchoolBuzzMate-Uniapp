@@ -1,6 +1,6 @@
 'use strict'
 
-const { resolveUniIdUser, findSchoolUser, resolveWeixinOpenid } = require('../common/auth.js')
+const { resolveUniIdUser, findSchoolUser, resolveWeixinOpenid } = require('auth')
 const db = uniCloud.database()
 const dbCmd = db.command
 
@@ -23,6 +23,20 @@ async function getSchoolUser(context) {
     const err = new Error('请先完成学生认证'); err.code = 'NOT_VERIFIED'; throw err
   }
   return { userId, schoolUser: res.data[0] }
+}
+
+
+/** uni-pay v1 工厂: 顶层只导出 initWeixin/initAlipay, createOrder/verifyPaymentNotify 在实例上。
+ *  凭证取自 uni-config-center/uni-pay/config.json 的 wxpay 节。
+ *  注意: v1.0.25 走微信 APIv2 签名, 需要 wxpay.key (32 位 APIv2 密钥);
+ *  当前配置只有 keyV3/publicKey (APIv3), 补 key 前支付会报错 —— M4 前置项 (2026-10-29)。 */
+function getWxpayIns() {
+  const uniPay = require('uni-pay')
+  const payConfig = require('uni-config-center')({ pluginId: 'uni-pay' }).config()
+  if (!payConfig || !payConfig.wxpay) {
+    throw new Error('支付配置缺失: uni-config-center/uni-pay/config.json')
+  }
+  return uniPay.initWeixin(payConfig.wxpay)
 }
 
 async function resolveUsers(buyerId, sellerId) {
@@ -222,8 +236,7 @@ const ACTIONS = {
 
     // 创建 uni-pay 微信支付订单
     // uniPay.createOrder 内部会: 1) 创建 out_trade_no 2) 调微信统一下单 3) 返回 prepay 参数给前端
-    const uniPay = require('uni-pay')
-    const payRes = await uniPay.createOrder({
+    const payRes = await getWxpayIns().createOrder({
       provider: 'wxpay',
       totalFee: Math.round(order.amount * 100), // 分
       outTradeNo: order.order_no,
@@ -253,9 +266,7 @@ const ACTIONS = {
    * 收到回调后: 校验 -> 订单状态 0 -> 1 -> 记录支付信息
    */
   payNotify: async (params, context) => {
-    const uniPay = require('uni-pay')
-    // verifyPaymentParams 校验微信回调签名 + 解析 payload
-    const verified = await uniPay.verifyPaymentNotify(params)
+    const verified = await getWxpayIns().verifyPaymentNotify(params)
     if (!verified) return { errcode: 1, errmsg: '签名校验失败' }
 
     const { outTradeNo, custom } = verified

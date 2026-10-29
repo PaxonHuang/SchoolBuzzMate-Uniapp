@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "评价云函数（校趣闪搭）",
   "main": "index.js",
-  "dependencies": {},
+  "dependencies": {
+    "auth": "file:../common/auth"
+  },
   "extensions": {
     "uni-cloud-jql": {}
   },

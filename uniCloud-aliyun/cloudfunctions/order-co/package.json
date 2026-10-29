@@ -12,15 +12,9 @@
     "uni-cloud-jql": {}
   },
   "cloudfunction-config": {
-    "concurrency": 10,
+    "concurrency": 1,
     "memorySize": 256,
     "timeout": 10,
-    "triggers": [
-      {
-        "name": "timeoutScan",
-        "type": "timer",
-        "config": "0 0 * * * *"
-      }
-    ]
+    "triggers": []
   }
 }

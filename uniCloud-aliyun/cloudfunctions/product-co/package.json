@@ -5,5 +5,9 @@
   "main": "index.js",
   "dependencies": {
     "auth": "file:../common/auth"
+  },
+  "cloudfunction-config": {
+    "concurrency": 1,
+    "memorySize": 256
   }
 }
